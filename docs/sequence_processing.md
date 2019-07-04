@@ -2,8 +2,8 @@
 We utilized the [QIIME 2](https://qiime2.org/) suite of tools to perform much of the sequencing processing tasks in this project. A new virtual environment for QIIME 2 v-2019.4 installation. Most of the steps in this sequence processing workflow were executed within the QIIME environment, though the initial primer trimming was performed with an updated standalone version of Cutadapt.
 
 # Primer trimming with Cutadapt
-Unjoined paired end sequences were trimmed with Cutadapt v-2.3:
-> `$RAWDIR` points to one of the (1 of 9 libraries) directories of sequence data
+Unjoined paired end sequences were trimmed with Cutadapt v-2.3. We used an anchored approach, though our read data are such that the 5' adapter is not expected to be present in either the forward or reverse read.
+> `$RAWDIR` points to one of the (1 of 9 libraries) directories of sequence data  
 > `$OUTDIR` points to an output directory where trimmed reads were stored
 
 ```
@@ -18,8 +18,8 @@ done
 ```
 
 These raw data were then imported as a QIIME-formatted artifact. This required creating a `manifest file`:
-> `$OUTDIR` refers to the path set from previous command (where Cutadapt output fq files were output)
-> `$LIB` refers to the individual library name a sample was sequenced within (e.g. "Lib12")
+> `$OUTDIR` refers to the path set from previous command (where Cutadapt output fq files were output)  
+> `$LIB` refers to the individual library name a sample was sequenced within (e.g. "Lib12")  
 > `$LIBALT` refers to the individual library directory a sample was sequenced within (e.g. /path/to/Lib12)
 
 ```
@@ -47,9 +47,9 @@ rm *.tmptxt
 ```
 
 This manifest file was then used in the QIIME import function to create a `.qza` artifact containing all the unjoined paired end data:
-```
-QIIMEDIR=/mnt/lustre/macmaneslab/devon/guano/paper3/qiime/individ_libs/"$LIBALT"
+> `$QIIMEDIR` refers to the path to the output path for the resulting QIIME artifact outputs
 
+```
 qiime tools import \
   --type 'SampleData[PairedEndSequencesWithQuality]' \
   --input-path ../"$LIB".manifest.file \
@@ -65,34 +65,47 @@ qiime demux summarize \
   --o-visualization "$QIIMEDIR"/"$LIB".demux_sumry.qzv
 ```
 
-These visualizations can be loaded in the [QIIME viewer website](https://view.qiime2.org/).
+These visualizations can be loaded in the [QIIME viewer website](https://view.qiime2.org/). A directory containing the individual library `.qzv` files is [available here](https://github.com/devonorourke/nhguano/tree/master/data/qiime_qzv/demux_sumry). These per-base characteristics informed the next stage of the sequence processing: setting trimming parameters for DADA2 denoising.
+
 # Denoising with DADA2
-
-Drop out the shell script. paste here.
-Mention that .qzv files indicated that some NTCs remained; some even had moderate read depths (x samples with > 1000 reads). Link to qza files in Repo.
-
-# QIIME 2 sequence processing
-The steps in sequence processing began with merging the individually-denoised DADA2 ASV tables and representative sequence artifact files,
-
-
-1. Merging all DADA2 libraries
-2. Running decontam R script. Point to decontam_workflow.md file (link).
-3. Filtering out non NH-bat samples, NTCs, mock samples.
+The per-base visualizations suggested that the entirety of the expected read length was of high quality. Because our expected amplicon length was just 181 bp, we set the 3' truncation length for a given read to 181 bases. Files containing the denoised representative sequences (`"$LIB".raw_repSeqs.qza`), a table of the read abundances per sample per ASV (i.e. an OTU table), and a summary file containing the per-sample read abundances (`"$LIB".denoisingStats.qza`) were generated for each library. The summary `.qza` file was used as input to create the similarly named `.qzv` file used as input for visualization in the [qiime viewer](view.qiime2.org):
 ```
-## filtering table
-qiime feature-table filter-samples \
-  --i-table all.raw_table.qza --o-filtered-table study.raw_table.qza \
-  --m-metadata-file "$META" --p-where "SampleID='subject-1'"
+## generate repseqs
+qiime dada2 denoise-paired \
+  --p-n-threads 24 --p-trunc-len-f 181 --p-trunc-len-r 181 \
+  --i-demultiplexed-seqs "$LIB".demux.qza --o-denoising-stats "$LIB".denoisingStats.qza \
+  --o-table "$LIB".raw_table.qza --o-representative-sequences "$LIB".raw_repSeqs.qza \
 
-## filtering repSeqs
-qiime feature-table filter-seqs \
-  --i-data all.raw_repSeqs.qza --i-table study.raw_table.qza --o-filtered-data study.raw_repSeqs.qza
+## generate summary visualization
+qiime metadata tabulate \
+--m-input-file "$LIB".denoisingStats.qza --o-visualization "$LIB".denoisingStats.qzv  
 ```
 
-4. Figure out sampling depth with alpha rarefaction viz. Using default 10 iterations, but setting 1000 reads as minimum.
+Note that the DADA2-summary visualization files are [available here](https://github.com/devonorourke/nhguano/tree/master/data/qiime_qzv/dada2_sumry).  
+
+## Combining DADA2 datasets
+Because each library was separately processed in DADA2 we combined all ASV table and representative sequence `.qza` file into a single pair of artifacts:
+> `$PFX` refers to the parent directory path to the individual libraries with DADA2-processed .qza tables and representative sequence files
 
 ```
-qiime diversity alpha-rarefaction \
-  --p-metrics observed_otus --p-min-depth 1000 --p-max-depth 10000 --p-iterations 10 \
-  --i-table study.raw_table.qza --o-visualization study.raw.alphaRareViz.qzv
+# tables
+qiime feature-table merge --i-tables "$PFX"/lib12/p12.raw_table.qza \
+  --i-tables "$PFX"/lib31/p31.raw_table.qza --i-tables "$PFX"/lib32/p32.raw_table.qza \
+  --i-tables "$PFX"/lib41/p41.raw_table.qza --i-tables "$PFX"/lib42/p42.raw_table.qza \
+  --i-tables "$PFX"/lib51/p51.raw_table.qza --i-tables "$PFX"/lib52/p52.raw_table.qza \
+  --i-tables "$PFX"/lib71/p71.raw_table.qza --i-tables "$PFX"/lib72/p72.raw_table.qza \
+  --o-merged-table tmp.raw_table.qza
+
+# sequences
+qiime feature-table merge-seqs --i-data "$PFX"/lib12/p12.raw_repSeqs.qza \
+  --i-data "$PFX"/lib31/p31.raw_repSeqs.qza --i-data "$PFX"/lib32/p32.raw_repSeqs.qza \
+  --i-data "$PFX"/lib41/p41.raw_repSeqs.qza --i-data "$PFX"/lib42/p42.raw_repSeqs.qza \
+  --i-data "$PFX"/lib51/p51.raw_repSeqs.qza --i-data "$PFX"/lib52/p52.raw_repSeqs.qza \
+  --i-data "$PFX"/lib71/p71.raw_repSeqs.qza --i-data "$PFX"/lib72/p72.raw_repSeqs.qza \
+  --o-merged-data tmp.raw_repSeqs.qza
 ```
+
+The `.qza` files are available for both the ASV-table ([here](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza)) and fasta files ([here](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/repSeqs/all.raw_repSeqs.qza)) (though note these are `.qza` files that need to be exported to be viewed as traditional text files).
+
+## Next steps in analysis
+The `tmp.raw_table.qza` file served as input into the contamination overview outlined in the [decontam workflow document](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md). That analysis included evaluating sequence variants for potential wet-bench cross contamination, sequencing platform contamination, and identified (bat) host DNA sequences. Subsequently we then removed a series of ASVs suspected of contamination and removed the remaining negative control and mock samples from the dataset. Those data were then normalized and diversity estimates were conducted as described in the [diversity analyses document](https://github.com/devonorourke/nhguano/blob/master/docs/diversity_analyses.md).

@@ -1,6 +1,28 @@
+# Overview
+Raw sequence data was processed as described in the [sequence_processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document. Demultiplexed paired-end read data from multiple libraries were trimmed with Cutadapt, denoised with DADA2, and merged into a single QIIME-formatted ASV table and fasta file. These
+
 # Contamination evaluation
-We generated sequencing data from 9 Illumina libraries. These data consisted of true samples, positive biological mock samples, and negative controls (DNA extraction blanks that were amplified in conjunction with true samples). Because negative controls (herein termed NTCs) generated some sequencing data we explored whether there was evidence for pervasive contamination, specific batch contamination, or particular amplicon sequence variants (ASVs) that were likely contaminants. Notably, contamination can persist in two major ways: 
+We generated sequencing data from 9 Illumina libraries. These data consisted of true samples, positive biological mock samples, and negative controls (DNA extraction blanks that were amplified in conjunction with true samples). Because negative controls (herein termed NTCs) generated some sequencing data we explored whether there was evidence for pervasive contamination, specific batch contamination, or particular amplicon sequence variants (ASVs) that were likely contaminants. Notably, contamination can persist in two major ways:
 1. **Platform-based contamination** Also known as "index-bleed", or "cross-talk", these data are a result of the sequencing of the libraries whereby the indexes assigned to one sample are mistakenly assigned to a different sample. As a result, the ASVs present in one sample are derived from a different sample.
 2. **Wet-bench contamination** can arise from the various processes in which the researcher generates the libraries. These samples were extracted using a 96-well plate format that has multiple opportunities for contamination: the initial bead-beating step requires the user to place individual guano samples in a 96-well plate with liquid reagents and shake the plate up to 30 Hz for 20 minutes. It's possible that the silicone mat used to secure and separate individual samples within the wells leaks liquid among the wells. It's also possible that some of this liquid and debris can be mixed between wells during the step following the shaking where the user removes the silicone mat. In addition, multiple rounds of pipetting various supernatants into and out of the wells poses opportunities for multichannel tips to drag across non-target wells. We later amplified our DNA via PCR, which required additional pipetting and added another layer of reagent (principally primers and PCR master mix) contamination. Finally, reagent contamination from the kits directly (also known as "kitomes") are possible, though less likely for our system given that these are arthropod amplicons and most kitomes are suspected to have microbial contaminants.
 
 Our contamination evaluation explores the distributions of read abundances per sample and per ASV (i.e. how many sequence counts were present per sample? per ASV among all samples?), the distribution of unique ASVs per sample, and the prevalence of individual ASVs among all samples. We used the [decontam software]
+
+
+
+
+# QIIME 2 data filtering
+3. Filtering out non NH-bat samples, NTCs, mock samples.
+```
+## filtering table
+qiime feature-table filter-samples \
+  --i-table all.raw_table.qza --o-filtered-table study.raw_table.qza \
+  --m-metadata-file "$META" --p-where "SampleID='subject-1'"
+
+## filtering repSeqs
+qiime feature-table filter-seqs \
+  --i-data all.raw_repSeqs.qza --i-table study.raw_table.qza --o-filtered-data study.raw_repSeqs.qza
+```
+
+## Next steps in analysis
+The filtered dataset was used as input into the [diversity analyses](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md) pipeline, which included normalizing the data by rarefying, and estimating measures of alpha and beta diversity. 
