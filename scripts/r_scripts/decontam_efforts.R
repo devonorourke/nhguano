@@ -41,20 +41,14 @@ OTU=otu_table(mat.tmp, taxa_are_rows = TRUE)
 ## create physeq object:
 ps <- phyloseq(OTU, sam)
 rm(OTU, sam)
+
 ## remove any ASVs that are only in one sample only; drop any samples that no longer have data
-psf <- prune_taxa(taxa_sums(ps) > 1, ps)
+psf <- filter_taxa(ps, function (x) {sum(x > 0) > 1}, prune=TRUE)
   ntaxa(ps)   ## 10,797 ASVs
-  ntaxa(psf)  ## 10,790 ASVs
+  ntaxa(psf)  ## 3,210 ASVs
 psf <- prune_samples(sample_sums(psf) > 0, psf)
   nsamples(ps)  ## 3,622 samples
-  nsamples(psf) ## 3,255 samples
-  length(which(taxa_sums(psf) == 2))  ## 612 doubletons too...
-  length(which(taxa_sums(psf) == 3))  ## 577 tripletons
-  length(which(taxa_sums(psf) == 5))  ## 417 5-tons
-  length(which(taxa_sums(psf) == 10))  ## 235 10-tons (just 235 ASVs in at least 10 samples)
-  length(which(taxa_sums(psf) == 20))  ## 98 20-tons (just 98 ASVs in at least 20 samples, or about 1/10 of the data!)
-  length(which(taxa_sums(psf) == 50))  ## 46 20-tons (just 46 ASVs in at least 50 samples, or about 1/4 of our data)
-  
+  nsamples(psf) ## 3,232 samples
 rm(ps)
 
 ## create long-formatted; add in metadata
@@ -70,6 +64,38 @@ long_df <- merge(long_df, taxonomy)
 tmp1 <- long_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrange(-nReads) %>% mutate(ASValias=paste0("ASV-", row.names(.))) %>% select(-nReads)
 long_df <- merge(long_df, tmp1)
 rm(tmp1, metadata, taxonomy)
+
+
+## How rare are these ASVs anyway?
+nASVs <- long_df %>% group_by(ASVid) %>% summarise(Samples=n_distinct(SampleID)) %>% arrange(Samples)
+nrow(nASVs %>% filter(Samples == 1))    ## singleton ASVs: 7,585
+nrow(nASVs %>% filter(Samples >= 2))    ## singleton ASVs: 3,210
+nrow(nASVs %>% filter(Samples >= 5))    ## singleton ASVs: 1,189
+nrow(nASVs %>% filter(Samples >= 50))    ## singleton ASVs: 128
+nrow(nASVs %>% filter(Samples >= 100))    ## singleton ASVs: 39
+rm(nASVs)
+
+## How many unique samples per Study type?
+long_df %>% group_by(SampleType, SampleID) %>% summarise(Reads=sum(Reads)) %>% 
+  group_by(SampleType) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% 
+  mutate(pSamples=round(Samples/sum(Samples),4) * 100) %>% 
+  mutate(pReads=round(Reads/sum(Reads),4) * 100) %>% 
+  select(SampleType, Samples, pSamples, Reads, pReads)
+## for all samples (could have as little as 1 read per sample!)..
+  ## 206 ncontrols make up about 6.3% of all samples, yet contribute just 0.43% of all reads
+  ## guano samples comprise majority of samples and sequence space
+
+## If we filter by requiring at least 500 reads per sample (and thus drop out any sample that had very few overall reads)..
+## ..which would be dropped by our rarefying sampling depth regardless, how many samples/reads per SampleType now?
+long_df %>% group_by(SampleType, SampleID) %>% summarise(Reads=sum(Reads)) %>% filter(Reads >= 500) %>% 
+  group_by(SampleType) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% 
+  mutate(pSamples=round(Samples/sum(Samples),4) * 100) %>% 
+  mutate(pReads=round(Reads/sum(Reads),4) * 100) %>% 
+  select(SampleType, Samples, pSamples, Reads, pReads)
+## Filtering demonstrates that among those samples with at least 500 reads...
+  ## We've lost almost 90% of our control samples, and about 50% of guano samples (so minread disproportionately from negatives)
+  ## There are fewer overall reads remaining to control samples now than before (0.37% vs 0.43%), even after removing the "low abundant" control samples
+
 
 ########################################################################
 ## plotting read abundances by SampleType
@@ -87,20 +113,51 @@ ggplot() +
   geom_point(data=df %>% filter(SampleType == "ncontrol"), aes(x=Index, y=LibrarySize), color="#512698") +
   theme_bw() +
   scale_y_log10()
+rm(df)
 
 ## This custom plot will examine both the read abundances and the nASVs
-## plot; save as 'contam_eval_allSampls_Counts-ASVs_scatterplot'; export at 800x400
+## generate the data 
 df_sumry <- long_df %>% group_by(SampleType, SampleID) %>% summarise(ASVs=n_distinct(ASVid), Reads=sum(Reads))
-ggplot() +
-  geom_point(data = df_sumry %>% filter(SampleType == "sample"), aes(y=ASVs, x=Reads), color="gray70", shape=1) +
-  geom_point(data = df_sumry %>% filter(SampleType == "mock"), aes(y=ASVs, x=Reads), color="#caa102", size=2.5, shape=15) +
-  geom_point(data = df_sumry %>% filter(SampleType == "ncontrol"), aes(y=ASVs, x=Reads), color="#512698", size=1.75, shape=17) +
-  theme_bw() +
-  scale_x_log10(labels=comma) + annotation_logticks(sides = "b", colour = "grey20") +
-  labs(x="sequence counts per Sample", y="ASVs per sample")
+## set levels
+df_sumry$SampleType <- factor(df_sumry$SampleType, levels = c("sample", "mock", "ncontrol"))
+## plot; save as 'contam_eval_allSampls_Counts-ASVs_scatterplot'; export at 800x400
+
+ggplot(data = df_sumry %>% filter(SampleType != "contaminant") %>% filter(Reads >= 500), 
+       aes(y=ASVs, x=Reads, color=SampleType, shape=SampleType, label=SampleID)) +
+  geom_point(data = df_sumry %>% filter(SampleType == "sample")) +
+  geom_point(data = df_sumry %>% filter(SampleType == "mock"), size=2) +
+  geom_point(data = df_sumry %>% filter(SampleType == "ncontrol")) +
+  scale_shape_manual(values=c(15,17, 1)) + scale_color_manual(values = c("#caa102","#512698", "gray60")) +
+  geom_vline(xintercept = 500, color="red", linetype="dotted") +
+  theme_bw() + theme(legend.position = "top") + guides(label=FALSE) +
+  scale_x_log10(limits=c(1, 1800000), labels=comma_format(accuracy = 1)) +  annotation_logticks(sides = "b", colour = "grey20") +
+  labs(x="sequence counts per Sample", y="ASVs per sample", 
+       subtitle = "Per-sample read abundances and ASV detections", caption = "Dotted line at 500 reads") +
+  theme(legend.position = "top") +
+  guides(label=FALSE)
   ## here we see that the vast majority of ncontrols have less than 1000 reads; two are strikingly higher
   ## mock communities have only a few higher than expected ASVs (~24 ASVs expected, so cross-index contam likely only minor issue)
 
+## Same plot as above, but we remove any sample with fewer than 500 reads...
+## plot; save as 'contam_eval_allSampls_Counts-ASVs_scatterplot_filt500ReadMin'; export at 600x600
+ggplot(data = df_sumry %>% filter(SampleType != "contaminant") %>% filter(Reads >= 500), 
+       aes(y=ASVs, x=Reads, color=SampleType, shape=SampleType, label=SampleID)) +
+  geom_label_repel(data = df_sumry %>% filter(SampleID=="negoro14D04"), segment.alpha = 0.5, segment.colour = "purple", nudge_y = 70, size=3) +
+  geom_label_repel(data = df_sumry %>% filter(SampleID=="negoro37F08"), segment.alpha = 0.5, segment.colour = "purple", nudge_x = .8, nudge_y = 50, size=3) +
+  geom_label_repel(data = df_sumry %>% filter(SampleID=="negoro34A01"), segment.alpha = 0.5, segment.colour = "purple", nudge_y = 85, size=3, fill="white") +
+  geom_label_repel(data = df_sumry %>% filter(SampleID=="negoro33G07"), segment.alpha = 0.5, segment.colour = "purple", nudge_x = -.15, nudge_y = 40, size=3, fill="white") +
+  geom_label_repel(data = df_sumry %>% filter(SampleID=="negoro14G07"), segment.alpha = 0.5, segment.colour = "purple", nudge_x = .1, nudge_y = 70, size=3) +
+  geom_point(data = df_sumry %>% filter(SampleType == "sample" & Reads >= 500)) +
+  geom_point(data = df_sumry %>% filter(SampleType == "mock" & Reads >= 500), size=2) +
+  geom_point(data = df_sumry %>% filter(SampleType == "ncontrol" & Reads >= 500)) +
+  scale_shape_manual(values=c(15,17, 1)) + scale_color_manual(values = c("#caa102","#512698", "gray60")) +
+  geom_vline(xintercept = 500, color="red", linetype="dotted") +
+  theme_bw() + theme(legend.position = "top") + guides(label=FALSE) +
+  scale_x_log10(labels=comma_format(accuracy = 1)) +  annotation_logticks(sides = "b", colour = "grey20") +
+  labs(x="sequence counts per Sample", y="ASVs per sample",
+       subtitle = "Per-sample read abundances and ASV detections\nSamples must have at least 500 sequence counts",
+       caption = "Dotted line at 500 reads\nNTC with most total sequence counts labeled")
+  
 rm(df_sumry)
 ########################################################################
 ## decontam function to measure ASV prevalence
@@ -114,30 +171,26 @@ rm(df_sumry)
 
 ## Going to test a range of prevalence thresholds first:
 ## Function will create a series of datasets:
-basic_contam.function <- function(value, label){
-  tmp <- isContaminant(psf, method="prevalence", neg="is.neg", threshold=value)
+basic_contam.function <- function(threshold, label){
+  tmp <- isContaminant(psf, method="prevalence", neg="is.neg", threshold=threshold)
   tmp <- tmp %>% mutate(ASVid=row.names(tmp))
-  tmp %>% mutate(threshold=label)
+  tmp %>% mutate(threshold=label) %>% mutate(batch="basic")
 }
 
 cp_basic01 <- basic_contam.function(0.1, "0.1")
 cp_basic02 <- basic_contam.function(0.2, "0.2")
 cp_basic03 <- basic_contam.function(0.3, "0.3")
 cp_basic05 <- basic_contam.function(0.5, "0.5")
-cp_basic07 <- basic_contam.function(0.7, "0.7")
-basic_contam.prev <- rbind(cp_basic01, cp_basic02, cp_basic03, cp_basic05, cp_basic07)
-rm(cp_basic01, cp_basic02, cp_basic03, cp_basic05, cp_basic07)
+basic_contam.prev <- rbind(cp_basic01, cp_basic02, cp_basic03, cp_basic05)
+rm(cp_basic01, cp_basic02, cp_basic03, cp_basic05)
 
 ## We can see that the number of contaminant-suspected (FALSE) or non-suspected (TRUE) varies with threshold:
-## Note that there are singleton ASVs that apparently aren't being filtered out by Phyloseq's function... labeleing those in this table
-basic_contam.prev$contaminant <- ifelse(basic_contam.prev$prev==1, "singleton", basic_contam.prev$contaminant)
 basic_contam_table <- basic_contam.prev %>% 
   group_by(threshold, contaminant) %>%
   tally() %>% 
   dcast(., threshold~contaminant, value.var = "n")
-basic_contam_table <- basic_contam_table[c(1,2,4,3)]
 
-## plot; save as 'decontam_prevTable_basic'; export at 480x240
+## plot; save as 'decontam_prevTable_basic'; export at 300x225
 formattable(basic_contam_table)
 rm(basic_contam_table)
 ## plot; save as 'decontam_prevHist_basic'; export at 600x300
@@ -149,6 +202,44 @@ ggplot(data = basic_contam.prev %>% filter(threshold=="0.1"), aes(p)) +
   #geom_vline(xintercept = 0.2, color="red", linetype="dashed") +
   labs(x="decontam Score", y="Number ASVs")
 
+## Of the ASVs flagged by the model, how many are private to the NTCs only? 
+allASVs <- unique(long_df$ASVid)
+cp_NTCbasic_ASVs_1 <- basic_contam.prev %>% filter(threshold=="0.1" & contaminant==TRUE) %>% pull(ASVid)
+cp_NTCbasic_ASVs_2 <- basic_contam.prev %>% filter(threshold=="0.2" & contaminant==TRUE) %>% pull(ASVid)
+cp_NTCbasic_ASVs_3 <- basic_contam.prev %>% filter(threshold=="0.3" & contaminant==TRUE) %>% pull(ASVid)
+cp_NTCbasic_ASVs_5 <- basic_contam.prev %>% filter(threshold=="0.5" & contaminant==TRUE) %>% pull(ASVid)
+uniqNTC_ASVs <- long_df %>% filter(SampleType=="ncontrol") %>% pull(ASVid) %>% unique()
+uniqSamp_ASVs <- long_df %>% filter(SampleType=="sample") %>% pull(ASVid) %>% unique()
+privateNTC_ASVS <- setdiff(uniqNTC_ASVs, uniqSamp_ASVs)
+private_NTCbasic_ASVs_1 <- intersect(cp_NTCbasic_ASVs_1, privateNTC_ASVS)  ## 12 NTCs flagged as "contaminants" aren't even in true samples (these are likely the mock samples)
+private_NTCbasic_ASVs_2 <- intersect(cp_NTCbasic_ASVs_2, privateNTC_ASVS)  ## 12 again... for all thresholds.
+private_NTCbasic_ASVs_3 <- intersect(cp_NTCbasic_ASVs_3, privateNTC_ASVS)
+private_NTCbasic_ASVs_5 <- intersect(cp_NTCbasic_ASVs_5, privateNTC_ASVS)
+
+## Of al the ASVs flagged by the model, how many are private to true samples?
+cp_SAMPbasic_ASVs_1 <- basic_contam.prev %>% filter(threshold=="0.1" & contaminant==FALSE) %>% pull(ASVid)
+cp_SAMPbasic_ASVs_2 <- basic_contam.prev %>% filter(threshold=="0.2" & contaminant==FALSE) %>% pull(ASVid)
+cp_SAMPbasic_ASVs_3 <- basic_contam.prev %>% filter(threshold=="0.3" & contaminant==FALSE) %>% pull(ASVid)
+cp_SAMPbasic_ASVs_5 <- basic_contam.prev %>% filter(threshold=="0.5" & contaminant==FALSE) %>% pull(ASVid)
+privateSAMP_ASVS <- setdiff(uniqSamp_ASVs, uniqNTC_ASVs)
+private_SAMPbasic_ASVs_1 <- intersect(cp_SAMPbasic_ASVs_1, privateSAMP_ASVS)  ## 2,803 ASVs are not found in any negative control
+private_SAMPbasic_ASVs_2 <- intersect(cp_SAMPbasic_ASVs_2, privateSAMP_ASVS)  ## 2,803 again... for all thresholds.
+private_SAMPbasic_ASVs_3 <- intersect(cp_SAMPbasic_ASVs_3, privateSAMP_ASVS)
+private_SAMPbasic_ASVs_5 <- intersect(cp_SAMPbasic_ASVs_5, privateSAMP_ASVS)
+
+## Finally, how many ASVs are shared between the NTCs and true samples?
+common_ASVS_NTCandSAMP <- intersect(uniqNTC_ASVs, uniqSamp_ASVs)
+  ## 385 ASVs are shared among these data types (or about 12% overall)
+
+rm(list = ls(pattern = "cp_basic_ASVs_*"))
+rm(list = ls(pattern = "cp_NTCbasic_ASVs_*"))
+rm(list = ls(pattern = "cp_SAMPbasic_ASVs_*"))
+rm(list = ls(pattern = "private_*"))
+rm(common_ASVS_NTCandSAMP, uniqNTC_ASVs, uniqSamp_ASVs, allASVs)
+rm(basic_contam.function, basic_contam_table)
+
+########################################################################
+## Batch effects with Decontam
 ## Can add in "batch" variable for each sequencing run or any other set of variables
 ## We have to drop out the mock samples for DNAplate-based analysis to work (they don't have a plate number)
 psfm = subset_samples(psf, SampleType != "mock")                ## drops mock samples
@@ -166,27 +257,23 @@ cp_seq_01 <- batch_contam.function(psf, 0.1, "0.1", "SeqBatch", "SeqBatch")
 cp_seq_02 <- batch_contam.function(psf, 0.2, "0.2", "SeqBatch", "SeqBatch")
 cp_seq_03 <- batch_contam.function(psf, 0.3, "0.3", "SeqBatch", "SeqBatch")
 cp_seq_05 <- batch_contam.function(psf, 0.5, "0.5", "SeqBatch", "SeqBatch")
-cp_seq_07 <- batch_contam.function(psf, 0.7, "0.7", "SeqBatch", "SeqBatch")
 cp_dna_01 <- batch_contam.function(psfm, 0.1, "0.1", "DNAplate", "DNAplate")
 cp_dna_02 <- batch_contam.function(psfm, 0.2, "0.2", "DNAplate", "DNAplate")
 cp_dna_03 <- batch_contam.function(psfm, 0.3, "0.3", "DNAplate", "DNAplate")
 cp_dna_05 <- batch_contam.function(psfm, 0.5, "0.5", "DNAplate", "DNAplate")
-cp_dna_07 <- batch_contam.function(psfm, 0.7, "0.7", "DNAplate", "DNAplate")
 
 rm(psfm)
 
-batch_contam.prev <- rbind(cp_seq_01, cp_seq_02, cp_seq_03, cp_seq_05, cp_seq_07, cp_dna_01, cp_dna_02, cp_dna_03, cp_dna_05, cp_dna_07)
-rm(cp_seq_01, cp_seq_02, cp_seq_03, cp_seq_05, cp_seq_07, cp_dna_01, cp_dna_02, cp_dna_03, cp_dna_05, cp_dna_07)
+batch_contam.prev <- rbind(cp_seq_01, cp_seq_02, cp_seq_03, cp_seq_05, cp_dna_01, cp_dna_02, cp_dna_03, cp_dna_05)
+rm(cp_seq_01, cp_seq_02, cp_seq_03, cp_seq_05, cp_dna_01, cp_dna_02, cp_dna_03, cp_dna_05)
 
 ## create table showing the TRUE/FALSE ASVs per prevalence and batch classes
-batch_contam.prev$contaminant <- ifelse(batch_contam.prev$prev==1, "singleton", batch_contam.prev$contaminant)
 batch_contam.table <- batch_contam.prev %>% 
   group_by(threshold, batch, contaminant) %>% 
   tally() %>% 
   spread(., contaminant, n) %>% arrange(batch, threshold)
-batch_contam.table <- batch_contam.table[c(1,2,3,5,4)]
 
-## plot; save as 'decontam_prevTable_batch'; export at 800x400
+## plot; save as 'decontam_prevTable_batch'; export at 350x400
 formattable(batch_contam.table)
 rm(batch_contam.table)
 ## plot histogram; save as 'decontam_prevHist_batch'; export at 500x500
@@ -202,25 +289,64 @@ ggplot(data = batch_contam.prev %>% filter(threshold=="0.1"), aes(p, fill=batch)
         strip.text.y = element_text(size=14)) +
   labs(x="decontam Score", y="Number ASVs")
 
-rm(basic_contam.function, basic_contam.prev)
+########################################################################
+########################################################################
+## How many ASVs are present in the following sets?
+all.prev <- rbind(basic_contam.prev, batch_contam.prev)
+rm(basic_contam.prev, batch_contam.prev)
+
+
+## function counts the number of shared/distinct ASVs for the 7 sets among the 3 groups ("basic", "DNAplate",  or "SeqBatch")
+## function works on a per-threshold basis
+commonASVcounter <- function(ThisValue){
+  basiccontamASVs <- all.prev %>% filter(threshold==ThisValue & batch=="basic" & contaminant==TRUE) %>% pull(ASVid)
+  batchDNAcontamASVs <- all.prev %>% filter(threshold==ThisValue & batch=="DNAplate" & contaminant==TRUE) %>% pull(ASVid)
+  batchSeqcontamASVs <- all.prev %>% filter(threshold==ThisValue & batch=="SeqBatch" & contaminant==TRUE) %>% pull(ASVid)
+  all_shared <- data.frame(ASVs=length(intersect(intersect(basiccontamASVs, batchDNAcontamASVs), batchSeqcontamASVs))) %>% 
+    mutate(Group="all shared", Threshold=ThisValue)
+  only_basic_dna <- data.frame(ASVs=length(intersect(basiccontamASVs, batchDNAcontamASVs) %>% setdiff(., all_shared))) %>% 
+    mutate(Group="only DNAplate + basic", Threshold=ThisValue)
+  only_basic_seq <- data.frame(ASVs=length(intersect(basiccontamASVs, batchSeqcontamASVs) %>% setdiff(., all_shared))) %>% 
+    mutate(Group="only SeqBatch + basic", Threshold=ThisValue)
+  only_dna_seq <- data.frame(ASVs=length(intersect(batchDNAcontamASVs, batchSeqcontamASVs) %>% setdiff(., all_shared))) %>% 
+    mutate(Group = "only DNAplate + SeqBatch", Threshold=ThisValue)
+  only_basic <- data.frame(ASVs=length(setdiff(basiccontamASVs, batchDNAcontamASVs) %>% setdiff(., batchSeqcontamASVs))) %>% 
+    mutate(Group = "only Basic", Threshold = ThisValue)
+  only_dna <- data.frame(ASVs=length(setdiff(batchDNAcontamASVs, basiccontamASVs) %>% setdiff(., batchSeqcontamASVs))) %>% 
+    mutate(Group = "only DNAplate", Threshold=ThisValue) 
+  only_seq <- data.frame(ASVs=length(setdiff(batchSeqcontamASVs, basiccontamASVs) %>% setdiff(., batchDNAcontamASVs))) %>% 
+    mutate(Group = "only SeqBatch", Threshold=ThisValue)
+  
+  rbind(all_shared, only_basic_dna, only_basic_seq, only_dna_seq, only_basic, only_dna, only_seq)
+}
+
+## use the function to get the number of shared ASVs per threshold
+tmpASVcounts01 <- commonASVcounter("0.1")
+tmpASVcounts02 <- commonASVcounter("0.2")
+tmpASVcounts03 <- commonASVcounter("0.3")
+tmpASVcounts05 <- commonASVcounter("0.5")
+
+## combine the datasets into a single table
+ASVcount_byThreshold_byGroup <- rbind(tmpASVcounts01, tmpASVcounts02, tmpASVcounts03, tmpASVcounts05) %>% 
+  dcast(Group ~ Threshold, value.var = "ASVs")
+rm(list=ls(pattern = 'tmpASVcounts*'))
+ASVcount_byThreshold_byGroup$orderer <- c(1,5,6,2,3,7,4)
+ASVcount_byThreshold_byGroup <- ASVcount_byThreshold_byGroup %>% arrange(orderer) %>% select(-orderer)
+## plot; save as 'TableOf_ASVcounts_byThreshold_byGroup'; export at 350x300
+formattable(ASVcount_byThreshold_byGroup)
+  ## Most ASVs are shared either among all three filtering types or pairs of filtering types...
+  ## Very few ASVs are flagged as contaminants only by one filtering type (with DNAplate batch type as most)
+
 ########################################################################
 ## decontam ASVs - figures plotting the number of samples and number of reads per SampleType and ContamType
-## making 3 plots, then stitching together
+## exploring how batch type selection identifies contaminants or not at common threshold (0.2)
 ########################################################################
-contam_dna01_ASVs <- batch_contam.prev %>% 
-  filter(threshold=="0.1" & batch=="DNAplate" & contaminant==TRUE) %>% 
-  select(ASVid)
-contam_dna02_ASVs <- batch_contam.prev %>% 
+contam_dna02_ASVs <- all.prev %>% 
   filter(threshold=="0.2" & batch=="DNAplate" & contaminant==TRUE) %>% 
   select(ASVid)
-contam_seq01_ASVs <- batch_contam.prev %>% 
-  filter(threshold=="0.1" & batch=="SeqBatch" & contaminant==TRUE) %>% 
-  select(ASVid)
-contam_seq02_ASVs <- batch_contam.prev %>% 
+contam_seq02_ASVs <- all.prev %>% 
   filter(threshold=="0.2" & batch=="SeqBatch" & contaminant==TRUE) %>% 
   select(ASVid)
-contam_basic02_ASVs <- basic_contam.prev %>% 
-  filter(threshold=="0.2" & contaminant == TRUE) %>% select(ASVid)
 
 ## not sure if it's better to combine these or not?
 ## notrun: all02_ASVs <- c(contam_basic02_ASVs$ASVid, contam_seq03_ASVs$ASVid, contam_dna03_ASVs$ASVid) %>% unique(.)
@@ -228,132 +354,142 @@ contam_basic02_ASVs <- basic_contam.prev %>%
 ## This plot is going to just use the ASVs identified in the "SeqBatch" dataset.. 
 ## More controls per SeqBatch to better model the data; too few per DNAplate (and prevalence does better with more NTCs)
 ## Could combine from 'all02_ASVs' instead to be more conservative
-contam_df_sumry <- long_df %>% 
-  filter(ASVid %in% contam_seq01_ASVs$ASVid) %>%                  ## choose appropriate input here
-  group_by(SampleType, ASVid) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% 
-  mutate(Status="contam")
-noncontam_df_sumry <- long_df %>% 
-  filter(!ASVid %in% contam_seq01_ASVs$ASVid) %>%                  ## choose appropriate input here
-group_by(SampleType, ASVid) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% 
-  mutate(Status="non_contam")
-contam_plot_sumry <- rbind(contam_df_sumry, noncontam_df_sumry)
-#contam_plot_sumry$Status <- ifelse(is.na(contam_plot_sumry$Status) & contam_plot_sumry$SampleType=="ncontrol", "ncontrol_only", contam_plot_sumry$Status)
-#contam_plot_sumry$Status <- ifelse(is.na(contam_plot_sumry$Status) & contam_plot_sumry$SampleType=="sample", "sample_only", contam_plot_sumry$Status)
-#contam_plot_sumry$Status <- ifelse(is.na(contam_plot_sumry$Status) & contam_plot_sumry$SampleType=="mock", "mock_only", contam_plot_sumry$Status)
+dna_contam_df_sumry <- long_df %>% 
+  filter(ASVid %in% contam_dna02_ASVs$ASVid) %>%  group_by(SampleType, ASVid, ) %>% 
+  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="contam") %>% mutate(Batch="DNAplate")
+dna_noncontam_df_sumry <- long_df %>% 
+  filter(!ASVid %in% contam_dna02_ASVs$ASVid) %>%  group_by(SampleType, ASVid) %>% 
+  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="non_contam") %>% mutate(Batch="DNAplate")
+seq_contam_df_sumry <- long_df %>% 
+  filter(ASVid %in% contam_seq02_ASVs$ASVid) %>%  group_by(SampleType, ASVid, ) %>% 
+  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="contam") %>% mutate(Batch="SeqBatch")
+seq_noncontam_df_sumry <- long_df %>% 
+  filter(!ASVid %in% contam_seq02_ASVs$ASVid) %>%  group_by(SampleType, ASVid) %>% 
+  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="non_contam") %>% mutate(Batch="SeqBatch")
+
+contam_plot_sumry <- rbind(dna_contam_df_sumry, dna_noncontam_df_sumry, seq_contam_df_sumry, seq_noncontam_df_sumry)
 contam_plot_sumry <- contam_plot_sumry %>% filter(SampleType!="contaminant")
-rm(contam_df_sumry, noncontam_df_sumry)
+rm(dna_contam_df_sumry, dna_noncontam_df_sumry, seq_contam_df_sumry, seq_noncontam_df_sumry)
 
-cpc <- ggplot(data = contam_plot_sumry %>% filter(SampleType=="ncontrol"), 
-       aes(x=Reads, y=Samples, color=Status)) +
-  geom_point(shape=17, size=3) +
-  theme_bw() +
-  scale_color_manual(values=c("firebrick", "dodgerblue2")) +
-  scale_x_log10(labels=comma_format(accuracy = 1)) +
-  scale_y_continuous(breaks = c(0, 25, 50)) +
+## plot; save as 'decontam_Reads-ASVs_ContamOrNot; export at 1200x600
+ggplot(data = contam_plot_sumry, aes(x=Reads, y=Samples, color=Status, shape=SampleType)) +
+  geom_point() + 
+  theme_bw() + 
   annotation_logticks(sides="b") +
-  theme(legend.position = "right", legend.text = element_text(size=12), legend.title = element_blank())
-
-cpm <- ggplot(data = contam_plot_sumry %>% filter(SampleType=="mock"), 
-       aes(x=Reads, y=Samples, color=Status)) +
-  geom_point(shape=15, size=2, alpha=0.8) +
-  theme_bw() +
-  scale_color_manual(values=c("firebrick", "dodgerblue2")) +
+  scale_color_manual(values=c("firebrick", "dodgerblue2")) + 
+  scale_shape_manual(values=c(15,17,1)) +
   scale_x_log10(labels=comma_format(accuracy = 1)) +
-  scale_y_continuous(breaks = c(0,5,10)) +
-  annotation_logticks(sides="b") +
-  theme(legend.position = "right", legend.text = element_text(size=12), legend.title = element_blank())
-
-cps <- ggplot(data = contam_plot_sumry %>% filter(SampleType=="sample"), 
-       aes(x=Reads, y=Samples, color=Status)) +
-  geom_point(shape=1) +
-  theme_bw() +
-  scale_color_manual(values=c("firebrick", "dodgerblue2")) +
-  scale_x_log10(labels=comma_format(accuracy = 1)) +
-  scale_y_continuous(breaks = c(0, 400, 800)) +
-  annotation_logticks(sides="b") +
-  theme(legend.position = "right", legend.text = element_text(size=12), legend.title = element_blank())
-
-## plot; save as 'decontam_Reads-ASVs_ContamOrNot; export at 
-ggarrange(cpc, cpm, cps, common.legend = FALSE,
-          labels = c("A", "B", "C"), nrow = 3)
-rm(cpc, cpm, cps)
-  ## note that the biggest abundance Contamination ASVs aren't identified as likely contaminants
-  ## I wonder if that contaminant that is in all the NTCs is also in most of the true samples (so you can't really see a big diff...)
+  facet_wrap(Batch ~ SampleType, scales = "free_y", nrow=2) +
+  theme(legend.position = "top", legend.text = element_text(size=12), legend.title = element_blank()) +
+  labs(x="sequence counts per ASV", "Samples per ASV")
+  ## note that the biggest abundance Contamination ASVs aren't identified as likely contaminants in the SeqBatch method, but are with DNAplate method
 
 ########################################################################
-## we can also plot the decontam-style figure showing the prevaelence of ncontrol vs. samples
+## we can also plot the decontam-style figure showing the prevaelence of ncontrol vs. samples for each batch type
+## labeling a few of the most prevalent ASVs that are different or similar among the batch types
 ########################################################################
 psf.pa <- transform_sample_counts(psf, function(abund) 1*(abund>0))
 psf.pa.neg <- prune_samples(sample_data(psf.pa)$is.neg == "TRUE", psf.pa)
 psf.pa.pos <- prune_samples(sample_data(psf.pa)$is.neg == "FALSE", psf.pa)
-# Make data.frame of prevalence in positive and negative samples
-df.pa <- data.frame(pa.pos=taxa_sums(psf.pa.pos), pa.neg=taxa_sums(psf.pa.neg),
-                    contaminant=batch_contam.prev %>% filter(batch=="DNAplate" & threshold=="0.1") %>% select(contaminant))
-df.pa$ASVid <- row.names(df.pa)
+
+# Make data.frame of prevalence in positive and negative samples for each batch type
+dna.df.pa <- data.frame(pa.pos=taxa_sums(psf.pa.pos), pa.neg=taxa_sums(psf.pa.neg),
+                        contaminant=all.prev %>% filter(batch=="DNAplate" & threshold=="0.2") %>% select(contaminant)) %>% 
+  mutate(ASVid=row.names(.)) %>% mutate(Batch="DNAplate")
+
+seq.df.pa <- data.frame(pa.pos=taxa_sums(psf.pa.pos), pa.neg=taxa_sums(psf.pa.neg),
+                        contaminant=all.prev %>% filter(batch=="SeqBatch" & threshold=="0.2") %>% select(contaminant)) %>% 
+  mutate(ASVid=row.names(.)) %>% mutate(Batch="SeqBatch")
+df.pa <- rbind(dna.df.pa, seq.df.pa)
 ASVkey <- long_df %>% group_by(ASVid, ASValias) %>% summarise(Samples=n_distinct(SampleID)) %>% select(-Samples)
 df.pa <- merge(df.pa, ASVkey)
-rm(ASVkey)
+rm(ASVkey, dna.df.pa, seq.df.pa)
+
+## generate ASV list to use for selected points
+  ## ASVs 2,5,7 are TRUE for DNAplate batch, but FALSE for SeqBatch method
+  ## ASVs 8, 14, 16 are TRUE fpr both methods
+  ## ASVs 15, 18, 20 are FALSE for both methods.
+selectASVlist <- paste("ASV-", c(2,5,7,8,14,15,16,18,20), sep="")
 
 ## plot scatterplot; save as 'decontam_Prevalence_ncontrolANDsample'; export at 700x700 (WARNING: changing dimensions messes with labels)
 ggplot() + 
   geom_point(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminant)) +
-  scale_color_manual(values=c("dodgerblue2", "green", "firebrick")) +
-  geom_label_repel(data=df.pa %>% filter(contaminant=="FALSE" & pa.neg >= 9), aes(x=pa.neg, y=pa.pos, label=ASValias),
-                   force = 2, nudge_x = -5, nudge_y=95, segment.colour = "gray60", size=3) +
-  geom_label_repel(data=df.pa %>% filter(contaminant=="TRUE" & pa.neg >= 9) %>% filter(pa.neg < 40), aes(x=pa.neg, y=pa.pos, label=ASValias),
-                   force = 2, nudge_x = 4, nudge_y=-70, segment.colour = "gray60", size=3) +
-  geom_label_repel(data=df.pa %>% filter(pa.neg > 40), aes(x=pa.neg, y=pa.pos, label=ASValias),
-                   nudge_x = -5, segment.colour = "gray60", size=3) +
-  xlab("Prevalence (Negative Controls)") + ylab("Prevalence (True Samples)") +
+  facet_wrap(~Batch) +
+  scale_color_manual(values=c("dodgerblue2", "firebrick")) +
+  geom_label_repel(data=df.pa %>% filter(ASValias %in% selectASVlist & pa.neg >= 40), aes(x=pa.neg, y=pa.pos, label=ASValias),
+                   force = 2, nudge_x = -10, segment.colour = "gray60", size=3) +
+  geom_label_repel(data=df.pa %>% filter(ASValias %in% selectASVlist & pa.neg < 40 & pa.pos > 200), aes(x=pa.neg, y=pa.pos, label=ASValias),
+                   force = 2, nudge_x = 10, nudge_y = 25, segment.colour = "gray60", size=3) +
+  geom_label_repel(data=df.pa %>% filter(ASValias %in% selectASVlist & pa.neg < 40 & pa.pos < 200), aes(x=pa.neg, y=pa.pos, label=ASValias),
+                   force = 2, nudge_x = 20, segment.colour = "gray60", size=3) +
+  labs(x="Prevalence (Negative Controls)", 
+       y="Prevalence (True Samples)",
+       caption = "FALSE indicates ASV not identified as contaminant\nTRUE indicates ASV identified as contaminant by the model") +
   theme_bw() +
   theme(axis.text = element_text(size=12), axis.title = element_text(size=12),
-        legend.position="top", legend.text = element_text(size=12), legend.title = element_blank())
+        legend.position="top", legend.text = element_text(size=12), legend.title = element_blank(),
+        strip.text = element_text(size=12))
+
 rm(psf.pa, psf.pa.neg, psf.pa.pos, df.pa)
+rm(contam_df_sumry, contam_dna02_ASVs, contam_seq02_ASVs, contam_plot_sumry)
+
 ########################################################################
-## future goals:
-#1a. use mock data to highlight the bleed in (similar to tidybug plot); noramlize reads to per-sample
-#1b. use mock data to highlight which mock samples are likely contaminants
-#1c. drop those mock samples from true samples
-
-#2. drop any NTCs unique to the negative controls
+## Plotting selected ASVs that are highly preavlent but..
+## are either both TRUE, both FALSE, or differ, depending on the ..
+## Decontam batch method selected
 ########################################################################
 
-## append the `long_df` so that we set "contam" or not based on whether it was in the DNAplate-batched decontam with threshold 0.1...
-long_df$ContamStatus <- ifelse(long_df$ASVid %in% contam_dna01_ASVs$ASVid, "contam", "noncontam")
-
-## create a summary of all ASVs with total sequencing depth and number of detections; group by the sample type too
-contamASVtaxa <- long_df %>% 
-  filter(ContamStatus=="contam") %>% 
-  group_by(ASValias, phylum_name, class_name, order_name, family_name, genus_name, species_name, SampleType) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
-
-## Select the most prevalent ncontrol ASVs that are considered contaminants from the previous plot
-## A few of these are highly abundant, but most occur in just a few samples
-long_df %>% filter(SampleType=="ncontrol") %>% group_by(SampleID) %>% summarise(ASVs=n_distinct(ASVid)) %>% nrow()  ## there were 206 ncontrols to start with?
-  ## pretty amazing there are rarely ever more than 5 ncontrol samples with the same ASV... really refutes the idea of pervasive contam
+## append the `long_df` so that we set "contam" or not based on the status for each batch method
+seq_contamASVs <- all.prev %>% filter(batch=="SeqBatch" & threshold=="0.2" & contaminant==TRUE) %>% pull(ASVid)
+dna_contamASVs <- all.prev %>% filter(batch=="DNAplate" & threshold=="0.2" & contaminant==TRUE) %>% pull(ASVid)
 
 ## plotting the per-sample abundances from the `decontam_Prevalence_ncontrolANDsample` plot:
-prev_list <- c("ASV-1", "ASV-5", "ASV-12", "ASV-20",
-               "ASV-2", "ASV-3", "ASV-7", "ASV-11")
-prev_plotdat <- long_df %>% filter(ASValias %in% prev_list) %>% select(ASValias, Reads, ContamStatus, SampleType)
-prev_plotdat_types <- c("ncontrol", "sample")
-prev_plotdat$ASValias <- factor(prev_plotdat$ASValias, levels = c("ASV-1", "ASV-5", "ASV-12", "ASV-20", 
-                                                                  "ASV-2", "ASV-3", "ASV-7", "ASV-11"))
+## Using the nine ASVs selected from previous plot to compare
+keepsampletypelist <- c("ncontrol", "sample")
+prev_plotdat <- long_df %>% filter(ASValias %in% selectASVlist & SampleType %in% keepsampletypelist) %>% 
+  select(ASValias, Reads, SampleType, ASVid)
+prev_plotdat$SeqBatch <- ifelse(prev_plotdat$ASVid %in% seq_contamASVs, TRUE, FALSE)
+prev_plotdat$DNAplate <- ifelse(prev_plotdat$ASVid %in% dna_contamASVs, TRUE, FALSE)
+prev_plotdat$ColorMark <- ""
+prev_plotdat$ColorMark <- ifelse(prev_plotdat$DNAplate==TRUE & prev_plotdat$SeqBatch==TRUE, TRUE, prev_plotdat$ColorMark)
+prev_plotdat$ColorMark <- ifelse(prev_plotdat$DNAplate==FALSE & prev_plotdat$SeqBatch==FALSE, FALSE, prev_plotdat$ColorMark)
+prev_plotdat$ColorMark <- ifelse(prev_plotdat$DNAplate!=prev_plotdat$SeqBatch, 'DIFF', prev_plotdat$ColorMark)
 
-## plot facets; save as 'decontam_selectASVabundance-perSample_contamComparison'; export at 
-ggplot(prev_plotdat %>% filter(SampleType %in% prev_plotdat_types), 
-       aes(x=SampleType, y=Reads, color=ContamStatus, shape=SampleType)) +
+## set levels plot; ordering by 'DIFF', then 'TRUE', then 'FALSE' bor ColorMark (batch comparison result)
+prev_plotdat$ASValias <- factor(prev_plotdat$ASValias, levels = c(
+  "ASV-2", "ASV-5", "ASV-7", 
+  "ASV-8", "ASV-14", "ASV-16", 
+  "ASV-15", "ASV-18", "ASV-20"))
+
+p0 <- ggplot(prev_plotdat %>% filter(SampleType=="ncontrol"),
+             aes(x=SampleType, y=Reads, color=ColorMark, shape=SampleType)) +
   geom_jitter() +
-  facet_wrap(ContamStatus ~ ASValias, nrow = 2) +
-  scale_color_manual(values=c("firebrick", "dodgerblue2")) +
-  scale_shape_manual(values=c(15,1)) +
+  geom_boxplot(outlier.colour = NA, fill="white", alpha=0.5) +
+  facet_wrap( ~ ASValias, nrow = 3) +
+  scale_color_manual(values=c("darkorchid4", "firebrick", "dodgerblue2")) +
+  scale_shape_manual(values=c(15)) +
   scale_y_continuous(trans = 'log2', labels = comma_format(accuracy = 1)) +
-  #scale_y_log10(labels=comma_format(accuracy = 1)) +
   theme_bw() +
-  theme(legend.position = "none") + 
-  labs(x="", y="sequence counts")
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        legend.position="none") + 
+  labs(x="", y="sequence counts", subtitle = "Negative Control samples")
+
+p1 <- ggplot(prev_plotdat %>% filter(SampleType=="sample"),
+             aes(x=SampleType, y=Reads, color=ColorMark, shape=SampleType)) +
+  geom_jitter() +
+  geom_boxplot(outlier.colour = NA, fill="white", alpha=0.5) +
+  facet_wrap( ~ ASValias, nrow = 3) +
+  scale_color_manual(values=c("darkorchid4", "firebrick", "dodgerblue2")) +
+  scale_shape_manual(values=c(1)) +
+  scale_y_continuous(trans = 'log2', labels = comma_format(accuracy = 1)) +
+  theme_bw() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        legend.position="none") + 
+  labs(x="", y="sequence counts", subtitle = "True samples")
+
+## plot faceted pairs together; save as 'decontam_selectASVabundance-perSample_contamComparison'; export at 
+ggarrange(p0, p1, labels = c("A", "B"))
+rm(p0, p1, prev_plotdat)
 
 ###########
 ## 1. are there any ASVs among all NTCs we sequenced that are unique to NTCs?
@@ -375,3 +511,13 @@ ns_only <- intersect(ncontrolASVs$ASVid, sampleASVs$ASVid) %>% setdiff(., mockAS
 m_only
 n_only
 s_only
+
+
+########################################################################
+## future goals:
+#1a. use mock data to highlight the bleed in (similar to tidybug plot); noramlize reads to per-sample
+#1b. use mock data to highlight which mock samples are likely contaminants
+#1c. drop those mock samples from true samples
+
+#2. drop any NTCs unique to the negative controls
+########################################################################

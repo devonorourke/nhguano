@@ -547,7 +547,7 @@ negoro45B02,SB702,SB502,7.2,negoro16,45,B02,ncontrol,NA,NA,NA,NA
 negoro45C03,SB703,SB503,7.2,negoro16,45,C03,ncontrol,NA,NA,NA,NA
 negoro45D04,SB704,SB504,7.2,negoro16,45,D04,ncontrol,NA,NA,NA,NA
 negoro45E05,SB705,SB505,7.2,negoro16,45,E05,ncontrol,NA,NA,NA,NA
-negunemudumA01,SB701,SC501,1.2,negoro16,1,A01,ncontrol,NA,NA,NA,NA
+negunemudumA01,SB701,SC501,1.2,negoro16,01,A01,ncontrol,NA,NA,NA,NA
 oro150005,SA701,SC505,3.1,oro15,3,E01,sample,HOP,6/15/15,25,NA
 oro150007,SB710,SA508,3.2,oro15,10,H10,sample,HOP,6/15/15,25,NA
 oro150009,SB708,SB507,3.1,oro15,5,G08,sample,HOP,6/15/15,25,NA
