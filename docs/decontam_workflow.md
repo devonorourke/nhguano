@@ -109,13 +109,48 @@ We wanted to next explore whether the composition of the sequence variants was a
 
 # Diversity analyses using all data
 
-We'll rarefy our data prior to calculating any community composition distances, and the  our data at a very modest sampling depth to retain as many negative control samples as possible.
+We'll rarefy our data prior to calculating any community composition distances. QIIME 2 has an [alpha rarefaction function](https://docs.qiime2.org/2019.4/plugins/available/diversity/alpha-rarefaction/) whereby we can visualize how the observed richness of a sample (or other alpha diversith metrics) changes with sampling depth. Because this analysis is focused on looking at how negative control samples may or may not associate with a particular group (i.e. DNA extraction plate, or Sequencing batch) we care more about preserving as many NTC samples as possible, so we're going to focus our alpha diversity analysis only on those samples. Thus, we're first going to filter out all other non-NTC samples from the `tmp.raw_table.qza` initially imported in the decontam R script, then run the function on those NTC samples for a range of sampling depths. We'll then choose a single depth, rarefy _all_ samples at that depth, then use that new table in the R script to carry out the analysis.
 
+We know that most NTCs have low abundances, so we'll investigate the observed richness of ASVs in a narrow range: 100 to 1000 sequence counts:
 
-------
+> `$TABLE` refers to the [tmp.raw_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza) table
+> `$META` refers to the QIIME-formatted metadata file [qiime_allbat_meta.tsv](https://github.com/devonorourke/nhguano/blob/master/data/metadata/qiime_allbat_meta.tsv)
 
+```
+## Filtering data to retain only NTC samples
+qiime feature-table filter-samples \
+  --i-table $TABLE \
+  --m-metadata-file $META \
+  --p-where "SampleType='ncontrol'" \
+  --o-filtered-table tmp.neg_table.qza
 
+## Summary of remaining samples:
+qiime feature-table summarize --i-table tmp.neg_table.qza --o-visualization tmp.neg_sumrytable.qzv
 
+## Alpha diversity visualization
+qiime diversity alpha-rarefaction \
+--i-table tmp.neg_table.qza --o-visualization tmp.neg_alphaviz.qza\
+--p-metrics observed_otus --p-max-depth 1000 --p-min-depth 100
+```
+
+The [tmp.neg_sumrytable.qzv](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qzv/contam_analysis/tmp.neg_sumrytable.qzv) file can be loaded into the [QIIME viewer online](view.qiime2.org) and there is an interactive feature that illustrates how the number of features and samples are lost as a result of the sampling depth. The [tmp.neg_alphaviz.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qzv/contam_analysis/tmp.neg_alphaviz.qza) file contains a different summary of the number of observed ASVs at each of the specified sampling depths.  
+
+The `tmp.neg_sumrytable.qzv` file (visualized in the table below) suggests that a sampling depth between 400-600 sequences will retain a balance betwen preserving the most number of sequence variants and the greatest number of samples. However this is only relative to the negative control samples; clearly, we'd want to have a higher number of sequences for the true samples.
+
+| Sampling_depth | % ASVs remaining in dataset | # Samples |
+| -------------- | ------ | --------- |
+| 100 | 7% | 78 |
+| 200 | 8.3% | 47 |
+| 300 | 9.5% | 36 |
+| 400 | 11.7% | 33 |
+| 500 | 10.6% | 24 |
+| 600 | 11.3% | 21 |
+| 700 | 11.3% | 18 |
+| 800 | 9.1% | 13 |
+| 900 | 8.8% | 11 |
+| 1000 | 8% | 9 |
+
+What's
 
 # QIIME 2 data filtering
 3. Filtering out non NH-bat samples, NTCs, mock samples.
