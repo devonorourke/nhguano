@@ -108,8 +108,8 @@ Overall, the analyses thus far have suggested that:
 We wanted to next explore whether the composition of the sequence variants was associated with these batch effects. This required rarefying the data to conduct a series of distance estimates using nonphylogenetic and phylogenetic metrics.
 
 # Diversity analyses using all data
-
-We'll rarefy our data prior to calculating any community composition distances. QIIME 2 has an [alpha rarefaction function](https://docs.qiime2.org/2019.4/plugins/available/diversity/alpha-rarefaction/) whereby we can visualize how the observed richness of a sample (or other alpha diversith metrics) changes with sampling depth. Because this analysis is focused on looking at how negative control samples may or may not associate with a particular group (i.e. DNA extraction plate, or Sequencing batch) we care more about preserving as many NTC samples as possible, so we're going to focus our alpha diversity analysis only on those samples. Thus, we're first going to filter out all other non-NTC samples from the `tmp.raw_table.qza` initially imported in the decontam R script, then run the function on those NTC samples for a range of sampling depths. We'll then choose a single depth, rarefy _all_ samples at that depth, then use that new table in the R script to carry out the analysis.
+## Generating the required data: rarefying data, calculating distances, and PCoA
+We'll rarefy our data prior to calculating any community composition distances. QIIME 2 has an [alpha rarefaction function](https://docs.qiime2.org/2019.4/plugins/available/diversity/alpha-rarefaction/) whereby we can visualize how the observed richness of a sample (or other alpha diversity metrics) changes with sampling depth. Because this analysis is focused on looking at how negative control samples may or may not associate with a particular group (i.e. DNA extraction plate, or Sequencing batch) we care more about preserving as many NTC samples as possible, so we're going to focus our alpha diversity analysis only on those samples. Thus, we're first going to filter out all other non-NTC samples from the `tmp.raw_table.qza` initially imported in the [decontam R script](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R), then run the function on those NTC samples for a range of sampling depths. We'll then choose a single depth, rarefy _all_ samples at that depth, then use that rarefied table to conduct the distance estimates. All of this will happen using QIIME functions.
 
 We know that most NTCs have low abundances, so we'll investigate the observed richness of ASVs in a narrow range: 100 to 1000 sequence counts:
 
@@ -135,9 +135,9 @@ qiime diversity alpha-rarefaction \
 
 The [tmp.neg_sumrytable.qzv](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qzv/contam_analysis/tmp.neg_sumrytable.qzv) file can be loaded into the [QIIME viewer online](view.qiime2.org) and there is an interactive feature that illustrates how the number of features and samples are lost as a result of the sampling depth. The [tmp.neg_alphaviz.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qzv/contam_analysis/tmp.neg_alphaviz.qza) file contains a different summary of the number of observed ASVs at each of the specified sampling depths.  
 
-The `tmp.neg_sumrytable.qzv` file (visualized in the table below) suggests that a sampling depth between 400-600 sequences will retain a balance betwen preserving the most number of sequence variants and the greatest number of samples. However this is only relative to the negative control samples; clearly, we'd want to have a higher number of sequences for the true samples.
+The `tmp.neg_sumrytable.qzv` file (visualized in the table below) suggests that a sampling depth between 400-600 sequences will retain a balance between preserving the most number of sequence variants and the greatest number of samples. However this is only relative to the negative control samples; clearly, we'd want to have a higher number of sequences for the true samples.
 
-| Sampling_depth | % ASVs remaining in dataset | # Samples |
+| Sampling depth (bp) | % ASVs remaining | # Samples remaining |
 | -------------- | ------ | --------- |
 | 100 | 7% | 78 |
 | 200 | 8.3% | 47 |
@@ -150,7 +150,91 @@ The `tmp.neg_sumrytable.qzv` file (visualized in the table below) suggests that 
 | 900 | 8.8% | 11 |
 | 1000 | 8% | 9 |
 
-What's
+We can see that the overall observed richness doesn't change much across that range of 400-600 bases in the `tmp.neg_alphaviz.qza` file. Here's a screenshot of what that file looks like in the viewer:
+
+![imagehere:contam_alpharareViz](https://github.com/devonorourke/nhguano/blob/master/figures/contam_alpharareViz.png)
+
+Given these data, we selected a sampling depth of 500 reads in attempts to preserve diversity without losing too many NTC samples. We next rarefied the _entire_ dataset at that depth in QIIME. We also created another summary visualization of the remaining table to clarify which samples were retained in the analysis.
+
+```
+qiime feature-table rarefy \
+  --i-table $TABLE \
+  --p-sampling-depth 500 \
+  --o-rarefied-table contam_rfyd_table.qza
+
+qiime feature-table summarize --i-table contam_rfyd_table.qza --o-visualization contam_rfyd_sumrytable.qzv
+```
+
+As we can see in the [contam_rfyd_sumrytable.qzv](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qzv/contam_analysis/contam_rfyd_sumrytable.qzv) file, there are 1,515 samples remaining at this sampling depth, 24 of which are NTCs. The resulting [contam_rfyd_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/contam_rfyd_table.qza) ASV table contains the rarefied data, but we're going to filter out any samples with just a single ASV before we can use the data to calculate distances and ordinate the data:
+
+```
+qiime feature-table filter-samples --p-min-features 2 \
+  --i-table contam_rfyd_table.qza --o-filtered-table contam_rfyd_filtd_table.qza
+
+qiime feature-table summarize --i-table contam_rfyd_filtd_table.qza --o-visualization contam_rfyd__filtd_sumrytable.qzv
+```
+
+As we can see in the [contam_rfyd_filtd_sumrytable.qzv](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qzv/contam_analysis/contam_rfyd_filtd_sumrytable.qzv) visualization file, the filtered [contam_rfyd_filtd_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/contam_rfyd_filtd_table.qza) ASVtable now has just **1,498** samples instead of the original **1,515** samples. Notably, all 24 NTCs remain.  
+
+Next, we're going to be using Unifrac to estimate community compositional differences between samples, so we need to create a tree using the ASV sequences in the dataset. We'll again rely on a QIIME function to [align ASVs to build a tree](https://docs.qiime2.org/2019.4/plugins/available/phylogeny/align-to-tree-mafft-fasttree/). This is done with the original [tmp.raw_repSeqs.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/repSeqs/tmp.raw_repSeqs.qza) QIIME-formatted fasta file equivalent.
+
+> `$READS` refers to the `tmp.raw_repSeqs.qza` file linked above
+
+```
+## create tree with FastTree
+qiime phylogeny align-to-tree-mafft-fasttree \
+--i-sequences $READS \
+--p-n-threads 24 \
+--i-sequences tmp.raw_repSeqs.qza \
+--p-n-threads 24 \
+--o-alignment raw.ASV_alignment.qza --o-masked-alignment raw.ASV_alignment_masked.qza \
+--o-tree raw.ASVtree_unrooted.qza --o-rooted-tree raw.ASVtree_rooted.qza
+```
+
+The rooted [raw.ASVtree_rooted.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/trees) file is used for the Unifrac distance estimates next.
+
+
+QIIME has a pair of beta diversity functions for [non-phylogenetic](https://docs.qiime2.org/2019.4/plugins/available/diversity/beta/) and [phylogenetic](https://docs.qiime2.org/2019.4/plugins/available/diversity/beta-phylogenetic/) metrics. We'll apply a pair of distance estimates from each metric type:
+- Dice-Sorensen (a.k.a. _Observed otus_): unweighted abundance, unweighted phylogenetic
+- Bray-Curtis: weighted abundance, unweighted phylogenetic
+- unweighted Unifrac: unweighted abundance, weighted phylogenetic
+- weighted Unifrac: weighted abundance, weighted phylogenetic  
+
+Each distance estimate applies a simple function:
+> `$TABLE` refers to the `contam_rfyd_filtd_table.qza` file
+> `$TREE` refers to the `raw.ASVtree_rooted.qza` file
+
+```
+## non-phylogenetic
+qiime diversity beta --i-table $TABLE --p-metric dice --o-distance-matrix contam_ds_dist.qza
+qiime diversity beta --i-table $TABLE --p-metric braycurtis --o-distance-matrix contam_bc_dist.qza
+
+## phylogenetic
+qiime diversity beta-phylogenetic --i-table $TABLE --i-phylogeny --p-metric unweighted_unifrac --o-distance-matrix contam_uu_dist.qza
+qiime diversity beta-phylogenetic --i-table $TABLE --i-phylogeny --p-metric weighted_unifrac --o-distance-matrix contam_wu_dist.qza
+```
+
+Each distance output is then ordinated by Principal Components Analysis:
+****************** update here ******************
+****************** update here ******************
+****************** update here ******************
+****************** update here ******************
+****************** update here ******************
+****************** update here ******************
+****************** update here ******************
+****************** update here ******************
+
+
+`$DISTDIR` refers to directory with each distance `.qza` artifact
+
+```
+DISTDIR=/mnt/lustre/macmaneslab/devon/guano/paper3/qiime/select_libs/reads/contam_only/dists
+qiime diversity pcoa --i-distance-matrix "$DISTDIR"/contam_bc_dist.qza --o-pcoa bc_pcoa.qza
+```
+
+
+## Diversity analyses
+
 
 # QIIME 2 data filtering
 3. Filtering out non NH-bat samples, NTCs, mock samples.

@@ -7,6 +7,7 @@ library(decontam)
 library(formattable)
 library(ggpubr)
 library(ggrepel)
+library(ape)
 
 ## see decontam vignette here: https://benjjneb.github.io/decontam/vignettes/decontam_intro.html
 ## see decontam paper too: https://microbiomejournal.biomedcentral.com/articles/10.1186/s40168-018-0605-2
@@ -638,7 +639,7 @@ rm(all.prev, ASVfreq, ASVkey, batch_contam.table, contam_plot_sumry_sub,
 
 rm(contamDNAplateASVs, contamSeqBatchASVs, dna_contamASVs, keepsampletypelist, nonpath,
    selectASVlist, seq_contamASVs, basic_contam.function, batch_contam.function, commonASVcounter,
-   noncontamplotfunction, plotdatfunction, qzaimport.function, contamplotfunction, long_tmp, ASVcount_byThreshold_byGroup, metadata)
+   noncontamplotfunction, plotdatfunction, contamplotfunction, long_tmp, ASVcount_byThreshold_byGroup)
 
 ########################################################################
 ########################################################################
@@ -652,10 +653,25 @@ rm(contamDNAplateASVs, contamSeqBatchASVs, dna_contamASVs, keepsampletypelist, n
 ## Going to need a tree for the Unifrac distance estimates; creating that in QIIME 2 also
 ## See the `decontam_workflow.md` document for QIIME 2 code executed
 
+## Import metadata again
+metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
+metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
+metadata <- as.data.frame(metadata)
+row.names(metadata) <- metadata$SampleID
+sam = sample_data(metadata)
+
 ## Import rarefied data table
+rare_qzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/contam_rfyd_filtd_table.qza"
+features <- read_qza(rare_qzapath)
+mat.tmp <- features$data
+rm(features, rare_qzapath)
+OTU=otu_table(mat.tmp, taxa_are_rows = TRUE)
+rm(mat.tmp)
 
-## Importing tree from earlier QIIME 2 function using initial set of DADA2-processed reads
-
+## Import pcoa object 
+bc_pcoa <- read_qza(file = "~/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/bc_pcoa.qza")
+bc_varexp <- bc_pcoa$data$ProportionExplained[1, 1:2]
+bc_pcoa$data$Vectors[1:5, 1:3]
 
 
 
