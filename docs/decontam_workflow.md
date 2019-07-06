@@ -109,18 +109,10 @@ We wanted to next explore whether the composition of the sequence variants was a
 
 # Diversity analyses using all data
 
-We first normalized our data at a very modest sampling depth to retain as many negative control samples as possible. 
+We'll rarefy our data prior to calculating any community composition distances, and the  our data at a very modest sampling depth to retain as many negative control samples as possible.
 
 
 ------
-It would be interesting to run Decontam with a minimum read filter...
-What if we just cut out the first 10 ASVs from every read... what would happen to the prevalence estimates then? would nearly as many ASVs be considered "contaminated"?i
-########################################
-#################### here ####################
-########################################
-
-
-Contaminant ASVs are going to be those with the opposite characteristic: extremely prevalent among many samples, but likely moreso among the cohort of **ncontrol** samples than the guano **samples**.
 
 
 
