@@ -647,38 +647,162 @@ rm(contamDNAplateASVs, contamSeqBatchASVs, dna_contamASVs, keepsampletypelist, n
 ########################################################################
 ########################################################################
 
-## Going to rarefy data and calculate four diversity estimates:
-## While we'd normally wnat to rarefy at a relatively high total depth, many NTCs have few reads
-## Used a QIIME 2 alpha diversity rarefaction viz to determine appropriate sampling depth 
-## Going to need a tree for the Unifrac distance estimates; creating that in QIIME 2 also
-## See the `decontam_workflow.md` document for QIIME 2 code executed
+## See the `decontam_workflow.md` document for QIIME 2 code executed to generate the imported .qza files
 
 ## Import metadata again
 metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
 metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
 metadata <- as.data.frame(metadata)
-row.names(metadata) <- metadata$SampleID
-sam = sample_data(metadata)
 
-## Import rarefied data table
-rare_qzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/contam_rfyd_filtd_table.qza"
-features <- read_qza(rare_qzapath)
-mat.tmp <- features$data
-rm(features, rare_qzapath)
-OTU=otu_table(mat.tmp, taxa_are_rows = TRUE)
-rm(mat.tmp)
+## Import PCoA artifacts from QIIME
+ds_pcoaqza_path="/Users/do/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/ds_pcoa.qza"
+bc_pcoaqza_path="/Users/do/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/bc_pcoa.qza"
+uu_pcoaqza_path="/Users/do/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/uu_pcoa.qza"
+wu_pcoaqza_path="/Users/do/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/wu_pcoa.qza"
 
-## Import pcoa object 
-bc_pcoa <- read_qza(file = "~/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/bc_pcoa.qza")
-bc_varexp <- bc_pcoa$data$ProportionExplained[1, 1:2]
-bc_pcoa$data$Vectors[1:5, 1:3]
+## Function to generate plot data from PCoA qza artifacts
+pcoa2df <- function(Path, Metric){
+  tmp_pcoaqza <- read_qza(Path)
+  axisPC1label <- paste(round(tmp_pcoaqza$data$ProportionExplained[1, 1], 3)*100, "%)", sep = " ")
+  axisPC2label <- paste(round(tmp_pcoaqza$data$ProportionExplained[1, 2], 3)*100, "%)", sep = " ")
+  plotdat <- tmp_pcoaqza$data$Vectors[, 1:3] %>% 
+    mutate(PC1label=paste("PC1 (", axisPC1label, sep = " "), 
+           PC2label=paste("PC2 (", axisPC2label, sep = " "),
+           Metric=Metric)
+  as.data.frame(plotdat)
+}
 
+dspd <- pcoa2df(ds_pcoaqza_path, "Dice-Sorensen")
+bcpd <- pcoa2df(bc_pcoaqza_path, "Bray-Curtis")
+uupd <- pcoa2df(uu_pcoaqza_path, "Unweighted-Unifrac")
+wupd <- pcoa2df(wu_pcoaqza_path, "Weighted-Unifrac")
+
+allplotdat <- rbind(dspd, bcpd, uupd, wupd)
+rm(dspd, bcpd, uupd, wupd)
+allplotdat <- merge(allplotdat, metadata)
+allplotdat <- allplotdat %>% filter(SampleType != "contaminant")
+allplotdat$SeqBatch <- as.character(allplotdat$SeqBatch)
+coordequalval <- max(abs(c(max(allplotdat$PC1), min(allplotdat$PC1), max(allplotdat$PC2), min(allplotdat$PC2))))
 
 
 ########################################################################
+## first plot is to group data by SeqBatch
+########################################################################
+## notrun: custom 9-color palette for each SeqBatch 
+## notrune: pal9 <- c("#cc53a2","#8dcf55","#784bc2","#cca552","#51314f","#8bcbae","#bf5243","#9b99c0","#525f3b")
 
+## make 4 separate plots so we can include the % variance on each axis, then stitch into a single plot
+pcoaplot_bySeq <- function(BetaTest){
+  ggplot() +
+    geom_text(data=allplotdat %>% filter(SampleType=='sample' & Metric==BetaTest), 
+              aes(x=PC1, y=PC2, label=SeqBatch), color='gray50', alpha=0.6) +
+    geom_text(data=allplotdat %>% filter(SampleType=="ncontrol" & Metric==BetaTest), 
+              aes(x=PC1, y=PC2, label=SeqBatch), color='#512698', size=4) +
+    scale_x_continuous(limits = c(-coordequalval, coordequalval)) + 
+    scale_y_continuous(limits = c(-coordequalval, coordequalval)) + 
+    labs(x=allplotdat %>% filter(Metric==BetaTest) %>% pull(PC1label) %>% unique(),
+         y=allplotdat %>% filter(Metric==BetaTest) %>% pull(PC2label) %>% unique(),
+         subtitle = BetaTest, 
+         color = 'Sequencing Batch',
+         shape = 'Contaminant') +
+    theme_bw()
+}
+
+## collect data for each plot
+dsplot_seq <- pcoaplot_bySeq("Dice-Sorensen")
+bcplot_seq <- pcoaplot_bySeq("Bray-Curtis")
+uuplot_seq <- pcoaplot_bySeq("Unweighted-Unifrac")
+wuplot_seq <- pcoaplot_bySeq("Weighted-Unifrac")
+
+## plot scatterplot; save as 'contam_pcoa_4metric_bySeq'; export at 750x750
+ggarrange(dsplot_seq, bcplot_seq, uuplot_seq, wuplot_seq, 
+          common.legend = TRUE, ncol = 2, nrow=2, labels = c("A", "B", "C", "D"))
+  ## pretty clear from the weighted unifrac estimate that our NTCs are as likely to be in any SeqBatch as any other
+
+########################################################################
+## Next plot will group by DNAplate 
+########################################################################
+
+pcoaplot_byDNA <- function(BetaTest){
+  ggplot() +
+    geom_text(data=allplotdat %>% filter(SampleType=='sample' & Metric==BetaTest), 
+              aes(x=PC1, y=PC2, label=DNAplate), color='gray50', alpha=0.6) +
+    geom_text(data=allplotdat %>% filter(SampleType=="ncontrol" & Metric==BetaTest), 
+              aes(x=PC1, y=PC2, label=DNAplate), color='#512698', size=4) +
+    scale_x_continuous(limits = c(-coordequalval, coordequalval)) + 
+    scale_y_continuous(limits = c(-coordequalval, coordequalval)) + 
+    labs(x=allplotdat %>% filter(Metric==BetaTest) %>% pull(PC1label) %>% unique(),
+         y=allplotdat %>% filter(Metric==BetaTest) %>% pull(PC2label) %>% unique(),
+         subtitle = BetaTest, 
+         color = 'Sequencing Batch',
+         shape = 'Contaminant') +
+    theme_bw()
+}
+
+## collect data for each plot
+dsplot_dna <- pcoaplot_byDNA("Dice-Sorensen")
+bcplot_dna <- pcoaplot_byDNA("Bray-Curtis")
+uuplot_dna <- pcoaplot_byDNA("Unweighted-Unifrac")
+wuplot_dna <- pcoaplot_byDNA("Weighted-Unifrac")
+
+## plot scatterplot; save as 'contam_pcoa_4metric_byDNA'; export at 750x750
+ggarrange(dsplot_dna, bcplot_dna, uuplot_dna, wuplot_dna, 
+          common.legend = TRUE,
+          ncol = 2, nrow=2, labels = c("A", "B", "C", "D"))
+  ## here we find that DNAplates tend to be associated for unweighted abundance metrics (low abundnace reads are driving similarities)
+##
+
+######################################################################
+## focus solely on DNAplate 14 - the one with two of the highest read abundances for ncontrol samples
+######################################################################
+pcoaplot_byDNAwell <- function(BetaTest){
+  ggplot() +
+    geom_text(data=allplotdat %>% filter(SampleType=='sample' & Metric==BetaTest & DNAplate=="33"), 
+              aes(x=PC1, y=PC2, label=DNAwell), color='gray50', alpha=0.6) +
+    geom_point(data=allplotdat %>% filter(SampleType=="ncontrol" & Metric==BetaTest & DNAplate=="33"), 
+               aes(x=PC1, y=PC2), color='#512698', size=3) +
+    geom_label_repel(data=allplotdat %>% filter(SampleType=="ncontrol" & Metric==BetaTest & DNAplate=="33"), 
+                     aes(x=PC1, y=PC2, label=DNAwell), color='#512698', size=4, nudge_y = 0.5, force=5) +
+    scale_x_continuous(limits = c(-0.3, 0.32)) + 
+    scale_y_continuous(limits = c(-0.2, 0.5)) + 
+    labs(x=allplotdat %>% filter(Metric==BetaTest) %>% pull(PC1label) %>% unique(),
+         y=allplotdat %>% filter(Metric==BetaTest) %>% pull(PC2label) %>% unique(),
+         subtitle = BetaTest, 
+         color = 'Sequencing Batch',
+         shape = 'Contaminant') +
+    theme_bw()
+}
+
+dsplot_dnawell <- pcoaplot_byDNAwell("Dice-Sorensen")
+bcplot_dnawell <- pcoaplot_byDNAwell("Bray-Curtis")
+uuplot_dnawell <- pcoaplot_byDNAwell("Unweighted-Unifrac")
+wuplot_dnawell <- pcoaplot_byDNAwell("Weighted-Unifrac")
+
+## plot scatterplot; save as 'contam_pcoa_4metric_byDNAwell33only'; export at 750x750
+ggarrange(dsplot_dnawell, bcplot_dnawell, uuplot_dnawell, wuplot_dnawell, 
+          common.legend = TRUE,
+          ncol = 2, nrow=2, labels = c("A", "B", "C", "D"))
+  ## in this case, we see that the ncontrol wells don't correlate with surrounding wells 
+
+
+## clenaup:
+rm(list = ls(pattern = "dsplot_*"))
+rm(list = ls(pattern = "bcplot_*"))
+rm(list = ls(pattern = "uuplot_*"))
+rm(list = ls(pattern = "wuplot_*"))
+rm(coordequalval, allplotdat)
+rm(list=ls(pattern="pcoa*"))
+
+######################################################################
+######################################################################
+######################################################################## 
 ## future goals:
 #1a. use mock data to highlight the bleed in (similar to tidybug plot); noramlize reads to per-sample
 #1b. use mock data to highlight which mock samples are likely contaminants
 #1c. drop those mock samples from true samples
 #2. drop any NTCs unique to the negative controls
+
+
+
+
+

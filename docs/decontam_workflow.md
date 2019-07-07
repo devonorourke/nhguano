@@ -193,14 +193,13 @@ qiime phylogeny align-to-tree-mafft-fasttree \
 
 The rooted [raw.ASVtree_rooted.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/trees) file is used for the Unifrac distance estimates next.
 
-
-QIIME has a pair of beta diversity functions for [non-phylogenetic](https://docs.qiime2.org/2019.4/plugins/available/diversity/beta/) and [phylogenetic](https://docs.qiime2.org/2019.4/plugins/available/diversity/beta-phylogenetic/) metrics. We'll apply a pair of distance estimates from each metric type:
+QIIME has a pair of beta diversity functions for [non-phylogenetic](https://docs.qiime2.org/2019.4/plugins/available/diversity/beta/) and [phylogenetic](https://docs.qiime2.org/2019.4/plugins/available/diversity/beta-phylogenetic/) metrics. We're using four metrics here in this comparison:
 - Dice-Sorensen (a.k.a. _Observed otus_): unweighted abundance, unweighted phylogenetic
 - Bray-Curtis: weighted abundance, unweighted phylogenetic
 - unweighted Unifrac: unweighted abundance, weighted phylogenetic
 - weighted Unifrac: weighted abundance, weighted phylogenetic  
 
-Each distance estimate applies a simple function:
+Each distance estimate is calculated as follows:
 > `$TABLE` refers to the `contam_rfyd_filtd_table.qza` file
 > `$TREE` refers to the `raw.ASVtree_rooted.qza` file
 
@@ -210,30 +209,67 @@ qiime diversity beta --i-table $TABLE --p-metric dice --o-distance-matrix contam
 qiime diversity beta --i-table $TABLE --p-metric braycurtis --o-distance-matrix contam_bc_dist.qza
 
 ## phylogenetic
-qiime diversity beta-phylogenetic --i-table $TABLE --i-phylogeny --p-metric unweighted_unifrac --o-distance-matrix contam_uu_dist.qza
-qiime diversity beta-phylogenetic --i-table $TABLE --i-phylogeny --p-metric weighted_unifrac --o-distance-matrix contam_wu_dist.qza
+qiime diversity beta-phylogenetic --i-table $TABLE --i-phylogeny "$TREE" --p-metric unweighted_unifrac --o-distance-matrix contam_uu_dist.qza
+qiime diversity beta-phylogenetic --i-table $TABLE --i-phylogeny "$TREE" --p-metric weighted_unifrac --o-distance-matrix contam_wu_dist.qza
 ```
 
-Each distance output is then ordinated by Principal Components Analysis:
-****************** update here ******************
-****************** update here ******************
-****************** update here ******************
-****************** update here ******************
-****************** update here ******************
-****************** update here ******************
-****************** update here ******************
-****************** update here ******************
-
-
-`$DISTDIR` refers to directory with each distance `.qza` artifact
+We then use each of these distance estimates in a Principal Components Analysis:
+> `$DISTDIR` refers to the [directory with each distance artifact](https://github.com/devonorourke/nhguano/data/qiime_qza/distmat/contam_evals) - the `*dist.qza` files from the previous output  
+> `$PCOADIR` refers to the [output director where each PCoA artifact is found](https://github.com/devonorourke/nhguano/data/qiime_qza/pcoa/contam_evals) - the `*pcoa.qza` files
 
 ```
-DISTDIR=/mnt/lustre/macmaneslab/devon/guano/paper3/qiime/select_libs/reads/contam_only/dists
+qiime diversity pcoa --i-distance-matrix "$DISTDIR"/contam_ds_dist.qza --o-pcoa ds_pcoa.qza
 qiime diversity pcoa --i-distance-matrix "$DISTDIR"/contam_bc_dist.qza --o-pcoa bc_pcoa.qza
+qiime diversity pcoa --i-distance-matrix "$DISTDIR"/contam_uu_dist.qza --o-pcoa uu_pcoa.qza
+qiime diversity pcoa --i-distance-matrix "$DISTDIR"/contam_wu_dist.qza --o-pcoa wu_pcoa.qza
 ```
 
+These PCoA `.qza` files were imported into the [R script for this workflow](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R) to produce the subsequent ordinations presented in the following section. The `*dist.qza` objects were used to conduct a permutational analysis of variance using the [QIIME adonis plugin](https://docs.qiime2.org/2019.4/plugins/available/diversity/adonis/), which is a wrapper for the [Vegan Adonis R script](http://cc.oulu.fi/~jarioksa/softhelp/vegan/html/adonis.html) that allows us to assess the proportion of variation associated with a series of main effect variables. For our analysis we examined the model of (y ~ SampleType * SeqBatch * DNAplate).  
+
+> `$META` refers to the QIIME-formatted metadata file [qiime_allbat_meta.tsv](https://github.com/devonorourke/nhguano/blob/master/data/metadata/qiime_allbat_meta.tsv)
+> `$ADONISDIR` refers to the directory with the [output of the Adonis directory]((https://github.com/devonorourke/nhguano/data/qiime_qzv/contam_analysis/adonis)) containing the `.qzv` visualization files
+
+```
+qiime diversity adonis \
+  --i-distance-matrix contam_ds_dist.qza --o-visualization "$ADONISDIR"/contam_ds_adonis.qzv \
+  --m-metadata-file $META --p-formula "SampleType*SeqBatch*DNAplate"
+qiime diversity adonis \
+  --i-distance-matrix contam_bc_dist.qza --o-visualization "$ADONISDIR"/contam_bc_adonis.qzv \
+  --m-metadata-file $META --p-formula "SampleType*SeqBatch*DNAplate"
+qiime diversity adonis \
+  --i-distance-matrix contam_uu_dist.qza --o-visualization "$ADONISDIR"/contam_uu_adonis.qzv \
+  --m-metadata-file $META --p-formula "SampleType*SeqBatch*DNAplate"
+qiime diversity adonis \
+  --i-distance-matrix contam_wu_dist.qza --o-visualization "$ADONISDIR"/contam_wu_adonis.qzv \
+  --m-metadata-file $META --p-formula "SampleType*SeqBatch*DNAplate"
+```
 
 ## Diversity analyses
+PERMANOVA reports for each of the four distance metrics are available as `.qzv` files in the [Adonis directory of the Repo]((https://github.com/devonorourke/nhguano/data/qiime_qzv/contam_analysis/adonis)) and can be viewed in the [QIIME viewer online](view.qiime2.org). We find that while there are significant main effects for all three groups (**SampleType**, **SeqBatch**, and **DNAplate**), the strength of these relationships are extremely low with a single exception: the main effect of DNAplate. This finding suggests that when contamination does persist, it is a limited to the samples within the single plate itself, thus project-wide pervasive contamination is not of a great concern.  
+
+The per-sample dissimilarities were subsequently ordinated and visualized in the following plots. Both present the first two principle component axes for each of the four distance measures.
+
+The first plot examines the relationship of community composition between negative control samples (purple color) and positive control samples (grey), where each label of text on the plot represents the Sequencing batch the sample was from:
+
+![imagehere:contam_pcoa_4metric_bySeq](https://github.com/devonorourke/nhguano/figures/contam_pcoa_4metric_bySeq.png)
+
+The trends in these relationshps are strongest among the unweighted metrics, particularly the Dice-Sorensen metric. Because sequencing batches generally had samples that were extracted in similar locations and dates we would expect there to be some minor relationship to sequencing batches even among negative controls. However when abundances are taken into account, we find less of a relationship within sequencing batches. Further, when phylogenetic information is added with abundance information we find that there are negative control samples from each sequencing run in the same two dimensional space as another sequencing run. With so little overall variation explained by the unweighted metrics, we find no reason to be concerned about contamination due to the sequencing batch.  
+
+The next plot highlights how negative control samples relate to their respective positive controls with respect to the DNA plate a sample was extracted from (again, purple indicates a negative control sample, and a gray sample is a guano sample):  
+
+![imagehere:contam_pcoa_4metric_byDNA](https://github.com/devonorourke/nhguano/figures/contam_pcoa_4metric_byDNA.png)
+
+We find that there is a greater similarity among samples with common DNAplate numbers than with sequencing batch numbers. This is precicely what we would expect if there was a minor amount of variation occurring during DNA extraction - negative control samples that looked more like _other_ plates would be an indication of reagent contamination occurring across multiple extraction experiments and would be even more concerning. Thus we'd expect both guano and negative control samples to cluster together given that the guano samples were generally extracted in batches related to the site and week they were obtained. Nevertheless, while some samples are more similar to each other within the same DNAplate, the similarity of multiple negative control samples within a single DNAplate often vary in the same ordination space. If the entirety of an extraction was contaminated, we would expect all the negative control samples to cluster together more tightly to each other than they do to the other true samples, yet we don't have any strong evidence for that.
+
+To show one example of this, we selected a single DNAplate (**DNAplate 33**) and illustrate that the specific well location of a negative control sample often does not match up in composition to the expected neighboring wells:
+
+![imagehere:contam_pcoa_4metric_byDNAwel33only](https://github.com/devonorourke/nhguano/figures/contam_pcoa_4metric_byDNAwell33only.png)
+
+These data for just a single DNAplate indicate two further pieces of evidence suggesting that we do not need to be concerned about particular ASVs contaminating entire DNAplates:
+1. We do not see that the NTC samples are clustering together, thus there are no specific ASVs that appear to be dominating the negative control composition  
+2. The NTCs do not necessarily contain similar compositions to all the neighboring wells where they were extracted. If there was local contamination, we would expect that a given NTC sample would be similar to the surrounding wells. For example, the NTC sample in well location **B02** would be surrounded by plate well locations: A01, B01, C01, A02, C02, A03, B03, and C03. We find some evidence for that (ex. C02) but other instances where it's not apparent at all (ex. C01, A03, B03).
+
+Collectively these analyses point to random and infrequent instances where some minor amount of contamination may have occurred during DNA extraction, we expect that these instances are rare and will likely not contribute to any batch effects when analysing the various sets of samples that were extracted across different plates. Furtheremore, we find little evidence for any sequencing group bias. Overall we see no reason to remove any ASVs from these samples, and will simply remove the negative control samples from subsequent analysis.
 
 
 # QIIME 2 data filtering
