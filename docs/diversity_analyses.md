@@ -22,3 +22,11 @@ qiime diversity alpha-rarefaction \
   --p-metrics observed_otus --p-min-depth 1000 --p-max-depth 10000 --p-iterations 10 \
   --i-table study.raw_table.qza --o-visualization study.raw.alphaRareViz.qzv
 ```
+
+
+# consider using abundances and not normalizing
+for alpha diversity, could look at richness here: https://forum.qiime2.org/t/q2-breakaway-community-tutorial/5756
+
+For beta diversity, Nick mentioned using a DEseq wald test. See: http://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#variations-to-the-standard-workflow
+There's also a Corncob tutorial here: https://github.com/bryandmartin/corncob/blob/master/vignettes/corncob-intro.Rmd
+Corncob paper here: https://arxiv.org/pdf/1902.02776.pdf

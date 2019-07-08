@@ -75,7 +75,7 @@ Because there were distinct ASVs being flagged depending on the batch type, I wa
 ![decontam_Reads-ASVs_ContamOrNot](https://github.com/devonorourke/nhguano/blob/master/figures/decontam_Reads-ASVs_ContamOrNot.png)
 
 A few observations from this figure:
-1. The most prevalent ASVs in our dataset are routinely identified as contaminants by the DNAplate method, but are typically not by the sequencing batch method. This makes me suspicious that there is not a sufficient statistical power to support the DNAplate-based batch filter. For example, it could be that a partiuclar ASV is marked as a contaminant in 3 of 40 DNA plates, but not so in the other 37. Nevertheless, we're seeing some ASVs in hundreds of samples, and these are likely _not_ contaminants: they're the kinds of sequence variants we expect in the bat diet (each ASV was classified and assigned taxonomic identity, explained in the [diversity_analyses.md](https://github.com/devonorourke/nhguano/blob/master/docs/diversity_analyses.md) document).
+1. The most prevalent ASVs in our dataset are routinely identified as contaminants by the DNAplate method, but are typically not by the sequencing batch method. This makes me suspicious that there is not a sufficient statistical power to support the DNAplate-based batch filter. For example, it could be that a partiuclar ASV is marked as a contaminant in 3 of 40 DNA plates, but not so in the other 37. Nevertheless, we're seeing some ASVs in hundreds of samples, and these are likely _not_ contaminants: they're the kinds of sequence variants we expect in the bat diet (each ASV was classified and assigned taxonomic identity, explained in the last section of this document).
 2. The mock ASVs sequenced were often flagged as likely contaminants themselves. Given that these samples were not part of the DNA extraction process, the more abundant samples are only a result of sequencing cross-talk (and we know Decontam isn't built for that). Given that the mock samples often generated among the greatest per-sample read abundances per Illumina run, it's not surprising that we might be seeing the mock ASVs showing up in negative control samples at low abundances. This is explored in more detail in the next section.
 3. There are negative control samples that are _not_ identified as contaminants. These are clearly not of concern. It's unclear to me why an ASV would be unique to a control sample and not present in any mock sample or guano sample, but these are not of a concern with our data and will be filtered out.
 
@@ -361,20 +361,48 @@ We next take that temporary `nocontrol_nomockASV_table.qza` table and identify a
 1. The first database consists of a selection of host references designed specifically for this project. These sequences contain references for bat species known to inhabit New England and New York. We also included other reference sequences assigned to organisms that our lab had been conducting DNA extractions with at the same time this project was being conducted. Full details describing the database design are available - see [hostCOI_database_design](https://github.com/devonorourke/nhguano/blob/master/docs/hostCOI_database_design.md).
 2. A second database consisting of millions of COI sequences from arthropod and non-arthropod animals, as well as non-animal COI from subjects like fungi and microeukaryotes. The construction of this database is described in the [broadCOI_database_design.md](https://github.com/devonorourke/nhguano/blob/master/docs/broadCOI_database_design.md) file.
 
-ASVs that were considered strong matches from either database were removed from the `nocontrol_nomockASV_table.qza` table:
-> `$HOSTDBSEQ` refers to the QIIME-formatted sequence file for the host COI database
-> `$HOSTDBTAX` refers to the QIIME-formatted taxonomy file for the host COI database
-> `$BIGDBSEQ` refers to the QIIME-formatted sequence file for the broad COI database
-> `$BIGDBTAX` refers to the QIIME-formatted taxonomy file for the broad COI database
+All files associated with these databases are hosted in an [Open Science Framework project](https://osf.io/qju3w/).
+
+We used the QIIME 2 VSEARCH plugin to align representative sequences to the host and broad COI databases (separately) using similar parameters. We also trained a Naive Bayes classifier in QIIME 2 using the same broad COI database, then assigned taxonomy to the same ASV dataset a second time to identify if any ASVs were missed by either of the VSEARCH classification methods. We executed the following code to train the Naive Bayes classifier and classify the sequences using the Naive Bayes machine learning classifier as well as the VSEARCH alignment method:
+> `$HOSTDBSEQ` refers to the QIIME-formatted sequence file for the host COI database ([host_seqs.qza](https://osf.io/p7sze/))  
+> `$HOSTDBTAX` refers to the QIIME-formatted taxonomy file for the host COI database ([host_taxonomy.qza](https://osf.io/aq6ex/))  
+> `$BIGDBSEQ` refers to the QIIME-formatted sequence file for the broad COI database ([bigCOI.derep.seqs.qza](https://osf.io/2sh7n/))  
+> `$BIGDBTAX` refers to the QIIME-formatted taxonomy file for the broad COI database ([bigCOI.derep.tax.qza](https://osf.io/aqvcj/))  
+> `$READS` refers to the original [fasta](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/repSeqs/all.raw_repSeqs.qza) `all.raw_repSeqs.qza` artifact  
+> `$BIGCLFYR` refers to the QIIME-formatted Naive Bayes classifier file [nbClassifer_hostDBonly.qza](https://osf.io/vj6xn/)
 
 ```
-## filtering table for host asvs
-qiime feature-table filter-samples \
-  --i-table nocontrol_nomockASV_table.qza --o-filtered-table nocontrol_nomockASV_table.qza \
-  --m-metadata-file "$MOCKASVs" --p-exclude-ids
---i-table  nocontrol_nomockASV_table.qza
+## classify ASVs with host database
+qiime feature-classifier classify-consensus-vsearch \
+  --i-query "$READS" --o-classification tmp.raw_hostDB_VStax.qza \
+  --i-reference-reads "$HOSTDBSEQ" --i-reference-taxonomy "$HOSTDBTAX" \
+  --p-maxaccepts 1000 --p-perc-identity 0.97 --p-query-cov 0.89 --p-strand both --p-threads 24
+
+## classify ASVs with broad COI database
+qiime feature-classifier classify-consensus-vsearch \
+  --i-query "$READS" --o-classification tmp.raw_bigDB_VStax.qza
+  --i-reference-reads "$BIGDBSEQ" --i-reference-taxonomy "$BIGDBTAX" \
+  --p-maxaccepts 1000 --p-perc-identity 0.97 --p-query-cov 0.89 --p-strand both --p-threads 24 \
+
+## train the Naive Bayes classifier using the broad COI database
+qiime feature-classifier fit-classifier-naive-bayes \
+  --i-reference-reads "$BIGDBSEQ" --i-reference-taxonomy "$BIGDBTAX" \
+  --o-classifier nbClassifer_hostDBonly.qza
+
+## classify ASVs with Naive Bayes classifier     
+qiime feature-classifier classify-sklearn \
+  --i-reads "$READS" --i-classifier "$BIGCLFYR" \
+  --p-n-jobs 1 --p-reads-per-batch 2000 \
+  --o-classification tmp.raw_bigDB_NBtax.qza
 ```
 
+Each classification file output was exported into a `.tsv` format:
+```
+qiime tools export --input-path {some.qza} --output-path tmp && mv ./tmp/* . && mv taxonomy.tsv {some.tsv}
+```
 
-## Next steps in analysis
-We next perform a series of filtering steps to remove host (bat) sequences, as well as filter out negative control samples, mock samples, and the prevalent mock ASVs identified above. We use taxonomic information assigned to each sequence to either discard or retain the remaining ASVs based on whether or not the particular ASV contains at least Family-rank information and are classified as arthropods. We then conduct a number of diversity estimates with several QIIME 2 plugins. All of these steps are described in the [diversity analyses](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md) document.
+The resulting [tmp.raw_bigDB_NBtax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_bigDB_NBtax.tsv), [tmp.raw_bigDB_VStax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_bigDB_VStax.tsv), [tmp.raw_hostDB_VStax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_hostDB_VStax.tsv) files were then available for analysis in the [decontam R script](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R). The equivalent `.qza` files are available in [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/taxonomy).
+
+We first uploa
+
+ASVs that were considered strong matches from either database were removed from the `nocontrol_nomockASV_table.qza`.

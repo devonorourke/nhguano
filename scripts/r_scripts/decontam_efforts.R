@@ -12,6 +12,8 @@ library(ape)
 ## see decontam vignette here: https://benjjneb.github.io/decontam/vignettes/decontam_intro.html
 ## see decontam paper too: https://microbiomejournal.biomedcentral.com/articles/10.1186/s40168-018-0605-2
 
+## Data produced from this workflow is more fully described here: https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md 
+
 ########################################################################
 ## data imports to create phyloseq object (useful for decontam functions)
 ########################################################################
@@ -776,7 +778,7 @@ rm(coordequalval, allplotdat)
 rm(list=ls(pattern="pcoa*"))
 
 ######################################################################
-## Last section is to use mock data to visualize index bleed among the 9 libraries
+## Next section is to use mock data to visualize index bleed among the 9 libraries
 ######################################################################## 
 
 ## import metadata again
@@ -840,7 +842,7 @@ mock$MockASV <- ifelse(mock$ASVid %in% expect_mockseqs, TRUE, FALSE)
 ## plot the per-sample abundances of each ASV, faceted by mock sample, coloring the Mock ASV status
 ## plot scatterplot, save as 'contam_mockIndexBleed'; export at 
 ggplot(mock, aes(x=SampleID, y=Reads, color=MockASV)) +
-  geom_point() +
+  geom_jitter(width = 0.3) +
   facet_wrap(~SampleID, nrow = 2, scales = "free_x") +
   scale_y_continuous(trans="log10") +
   labs(x="", y="sequence counts\n") +
@@ -853,4 +855,15 @@ prevalent_ASVs_df <- mock %>% filter(MockASV == TRUE & Reads > 200)
 prevalent_ASVs <- prevalent_ASVs_df %>% select(ASVid) %>% unique()
 colnames(prevalent_ASVs) <- "featureid"
 write.table(prevalent_ASVs, file="~/Repos/nhguano/data/fasta/prevalentMockASVs.txt", row.names = FALSE, quote=FALSE, col.names = TRUE)
+
+########################################################################
+###############################################################################
+##########################################################################################
+## We have now filtered out all mock samples and negative control samples from the dataset 
+## Next steps are to identiby bat host sequences
+## Code executed described in the last section of the `decontam_workflow.md` document 
+##########################################################################################
+##############################################################################
+########################################################################
+
 
