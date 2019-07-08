@@ -356,7 +356,7 @@ rm tmpfiltd-table.qza nocontrol_table.qza
 ```
 
 ## Removing bat (host) sequences
-We next take that temporary `nocontrol_nomockASV_table.qza` table and identify all bat host sequences in the samples. We're going to use two separate databases to query this dataset:
+We next take the [nocontrol_nomockASV_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/nocontrol_nomockASV_table.qza) table and identify all bat host sequences in the samples. We're going to use two separate databases to query this dataset:
 
 1. The first database consists of a selection of host references designed specifically for this project. These sequences contain references for bat species known to inhabit New England and New York. We also included other reference sequences assigned to organisms that our lab had been conducting DNA extractions with at the same time this project was being conducted. Full details describing the database design are available - see [hostCOI_database_design](https://github.com/devonorourke/nhguano/blob/master/docs/hostCOI_database_design.md).
 2. A second database consisting of millions of COI sequences from arthropod and non-arthropod animals, as well as non-animal COI from subjects like fungi and microeukaryotes. The construction of this database is described in the [broadCOI_database_design.md](https://github.com/devonorourke/nhguano/blob/master/docs/broadCOI_database_design.md) file.
@@ -403,6 +403,18 @@ qiime tools export --input-path {some.qza} --output-path tmp && mv ./tmp/* . && 
 
 The resulting [tmp.raw_bigDB_NBtax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_bigDB_NBtax.tsv), [tmp.raw_bigDB_VStax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_bigDB_VStax.tsv), [tmp.raw_hostDB_VStax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_hostDB_VStax.tsv) files were then available for analysis in the [decontam R script](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R). The equivalent `.qza` files are available in [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/taxonomy).
 
-We first uploa
+We found substantial evidence that indicated that the only New Hampshire bat sampled in this study is _Myotis lucifugus_. Both the Naive Bayes and VSEARCH classifiers identified a common set of 27 ASVs assigned to several bat species. However, these other bats were present in just 1 or 2 samples generating just 22 reads total among the entire 9 libraries. The little brown bat, on the other hand, was detected in 595 samples, and generated over 1.6 million sequences. No other expected bat species was detected in our study, confirming that these guano samples are likely exclusively from little brown bats. Interestingly, the host DB method assigned just 3 unique ASVs totaling just 10 reads, and perhaps is an indication that the _lucifugus_ reference in that database is not similar enough to the NH species types we have in the broader COI reference. Nevertheless, these analyses confirm that our New Hampshire guano is highly likely to have originated from a single species: _Myotis lucifugus_.
 
-ASVs that were considered strong matches from either database were removed from the `nocontrol_nomockASV_table.qza`.
+All bat-associated from either database were removed from the `nocontrol_nomockASV_table.qza`:
+> The `$BATASVS` file refers to the [bat-associated list of ASVs](https://github.com/devonorourke/nhguano/data/host/batASVs.txt) generated at the end of the R script
+> `$TABLE` refers to [nocontrol_nomockASV_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/nocontrol_nomockASV_table.qza)
+
+```
+qiime feature-table filter-samples \
+  --i-table $TABLE --o-filtered-table nocontrol_nomockASV_nobatASVs_table.qza \
+  --m-metadata-file "$BATASVS" --p-exclude-ids
+```
+
+Our final step in a filtering analysis requires making decisions on what ASVs should be retained based upon taxonomic information.
+
+## Filtering out non-arthropod sequences

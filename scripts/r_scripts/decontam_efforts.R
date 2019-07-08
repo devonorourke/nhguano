@@ -856,6 +856,9 @@ prevalent_ASVs <- prevalent_ASVs_df %>% select(ASVid) %>% unique()
 colnames(prevalent_ASVs) <- "featureid"
 write.table(prevalent_ASVs, file="~/Repos/nhguano/data/fasta/prevalentMockASVs.txt", row.names = FALSE, quote=FALSE, col.names = TRUE)
 
+
+rm(prevalent_ASVs, prevalent_ASVs_df, mmockexpectqza, expect_mockqza, bigmockASVs, notexpect_mockseqs, notexpect_mockqza,
+   mockexpectqza, mock, p3L2asvs, qzapath, expect_mockseqs, expectseqs, oroList)
 ########################################################################
 ###############################################################################
 ##########################################################################################
@@ -866,4 +869,75 @@ write.table(prevalent_ASVs, file="~/Repos/nhguano/data/fasta/prevalentMockASVs.t
 ##############################################################################
 ########################################################################
 
+## read in each .tsv file from the three classification approaches
+tax_filter_function <- function(urlpath, Classifier){
+  tmp <- read_delim(file = urlpath, delim="\t")
+  tmp2 <- tmp %>% separate(., col = Taxon,
+                   into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name"),
+                   sep=';') %>% 
+    filter(order_name == "o__Chiroptera" | order_name=="Chiroptera") %>% 
+    select(-kingdom_name, -Confidence) %>% 
+    mutate(Classifyr=Classifier)
+  tmp2 <- as.data.frame(apply(tmp2, 2, function(y) gsub(".__", "", y)))
+  tmp2 <- as.data.frame(apply(tmp2, 2, function(y) gsub("^$|^ $", NA, y)))
+  colnames(tmp2)[1] <- "ASVid"
+  tmp2
+}
 
+vs_host_db_path <- "https://github.com/devonorourke/nhguano/raw/master/data/tax/tmp.raw_hostDB_VStax.tsv"
+vs_big_db_path <- "https://github.com/devonorourke/nhguano/raw/master/data/tax/tmp.raw_bigDB_VStax.tsv"
+nb_big_db_path <- "https://github.com/devonorourke/nhguano/raw/master/data/tax/tmp.raw_bigDB_NBtax.tsv"
+
+vs_hostDB_df <- tax_filter_function(vs_host_db_path, "vs_hostDB")
+vs_bigDB_df <- tax_filter_function(vs_big_db_path, "vs_bigDB")
+nb_bigDB_df <- tax_filter_function(nb_big_db_path, "nb_bigDB")
+
+## How many reads per each ASV identified by the classifiers in the dataset? Broken down by SampleType.
+NHstudylist <- c("oro15", "oro16")
+
+## hostDB, VSEARCH method
+long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% vs_hostDB_df$ASVid & SampleType == "sample") %>% 
+  group_by(SampleType, StudyID) %>% 
+  summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
+    ## found just 3 samples total, 3 ASVs, combining for a measly 10 total reads. basically nothing!
+
+## bigDB, VSEARCH method
+long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% vs_bigDB_df$ASVid & SampleType == "sample") %>% 
+  group_by(SampleType, StudyID) %>% 
+  summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
+    ## 59 samples from 2015, 540 samples from 2016. way more than the host DB method.
+    ## 1,657,573 total reads (about 6.2% of all data)
+
+## bigDB, Naive Bayes method
+long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% nb_bigDB_df$ASVid & SampleType == "sample") %>% 
+  group_by(SampleType, StudyID) %>% 
+  summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
+    ## same number of samples as VSEARCH method above, but more reads (2 more ASVs)
+    ## 1,657,580 (just 7 more reads, so additional 1 ASV isn't particularly important)
+
+## How many unique ASVs for each bigDB classifier method?
+long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% vs_bigDB_df$ASVid & SampleType == "sample") %>% 
+  group_by(SampleType) %>% summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
+  ## 27 for VSEARCH/bigDB
+long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% nb_bigDB_df$ASVid & SampleType == "sample") %>% 
+  group_by(SampleType) %>% summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
+  ## 28 for Naive Bayes/bigDB
+
+## Add in taxonomy information to each dataset, and figure out what proportion of the reads are going to what species 
+## for the bigDB VSEARCH approach
+merge(vs_bigDB_df, long_df, all.x=TRUE) %>% 
+  filter(StudyID %in% NHstudylist & SampleType == "sample") %>% 
+  group_by(species_name) %>% 
+  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+  ## wow. basically everything is coming up Myotis lucifugus. just a trace amount of other bat hosts
+
+merge(nb_bigDB_df, long_df, all.x=TRUE) %>% 
+  filter(StudyID %in% NHstudylist & SampleType == "sample") %>% 
+  group_by(species_name) %>% 
+  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+  ## same story. it's clearly all MYLU, with these other bats probably in there as super minor contaminants. getting rid of all of them.
+
+## Generate a list of common ASVs detected by each method:
+batASVlist <- data.frame(c(as.character(nb_bigDB_df$ASVid), as.character(vs_bigDB_df$ASVid), as.character(vs_hostDB_df$ASVid))) %>% unique()
+colnames(batASVlist) <- c("featureid")
+write.table(batASVlist, file="~/Repos/nhguano/data/host/batASVs.txt", quote=FALSE, col.names = TRUE, row.names = FALSE)
