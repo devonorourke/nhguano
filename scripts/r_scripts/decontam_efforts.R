@@ -20,8 +20,6 @@ library(ape)
 metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
 metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
 metadata <- as.data.frame(metadata)
-row.names(metadata) <- metadata$SampleID
-sam = sample_data(metadata)
 
 ## import taxonomy
 taxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_NBtax.tsv", delim="\t")
@@ -37,22 +35,6 @@ colnames(taxonomy)[1] <- "ASVid"
 qzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/tmp.raw_table.qza"
 features <- read_qza(qzapath)
 mat.tmp <- features$data
-rm(features, qzapath)
-OTU=otu_table(mat.tmp, taxa_are_rows = TRUE)
-## create physeq object:
-ps <- phyloseq(OTU, sam)
-rm(OTU, sam)
-
-## remove any ASVs that are only in one sample only; drop any samples that no longer have data
-psf <- filter_taxa(ps, function (x) {sum(x > 0) > 1}, prune=TRUE)
-  ntaxa(ps)   ## 10,797 ASVs
-  ntaxa(psf)  ## 3,210 ASVs
-psf <- prune_samples(sample_sums(psf) > 0, psf)
-  nsamples(ps)  ## 3,622 samples
-  nsamples(psf) ## 3,232 samples
-rm(ps)
-
-## create long-formatted; add in metadata
 df.tmp <- as.data.frame(mat.tmp)
 rm(mat.tmp)
 df.tmp$OTUid <- rownames(df.tmp)
@@ -794,15 +776,81 @@ rm(coordequalval, allplotdat)
 rm(list=ls(pattern="pcoa*"))
 
 ######################################################################
-######################################################################
+## Last section is to use mock data to visualize index bleed among the 9 libraries
 ######################################################################## 
-## future goals:
-#1a. use mock data to highlight the bleed in (similar to tidybug plot); noramlize reads to per-sample
-#1b. use mock data to highlight which mock samples are likely contaminants
-#1c. drop those mock samples from true samples
-#2. drop any NTCs unique to the negative controls
+
+## import metadata again
+metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
+metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
+metadata <- as.data.frame(metadata)
+
+## import taxonomy again
+taxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_NBtax.tsv", delim="\t")
+taxonomy <- taxonomy %>% separate(., 
+                                  col = Taxon, 
+                                  sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
+  select(-kingdom_name)
+taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub(".__", "", y)))
+taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub("^$|^ $", NA, y)))
+colnames(taxonomy)[1] <- "ASVid"
 
 
+## import raw seq data again
+qzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/tmp.raw_table.qza"
+features <- read_qza(qzapath)
+mat.tmp <- features$data
+rm(features)
+df.tmp <- as.data.frame(mat.tmp)
+rm(mat.tmp)
+df.tmp$OTUid <- rownames(df.tmp)
+rownames(df.tmp) <- NULL
+long_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
+rm(df.tmp)
+colnames(long_df) <- c("ASVid", "SampleID", "Reads")
+long_df <- merge(long_df, metadata) %>% merge(., taxonomy)
+tmp1 <- long_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrange(-nReads) %>% mutate(ASValias=paste0("ASV-", row.names(.))) %>% select(-nReads)
+long_df <- merge(long_df, tmp1)
 
+## subset mock data 
+mock <- long_df %>% filter(SampleType=="mock")
+mock$SampleID <- as.character(mock$SampleID)
+## rename mock sample names for plotting clarity 
+mock$SampleID <- ifelse(mock$SampleID=="mockp1L2a", "mock_batch_1.2a", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockp1L2b", "mock_batch_1.2b", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockp3L1", "mock_batch_3.1", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockp3L2", "mock_batch_3.2", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockIM4p4L1", "mock_batch_4.1", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockIM4p4L2", "mock_batch_4.2", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockIM4p5L1", "mock_batch_5.1", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockIM4p5L2", "mock_batch_5.2", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockIM4p7L1", "mock_batch_7.1", mock$SampleID)
+mock$SampleID <- ifelse(mock$SampleID=="mockIM4p7L2", "mock_batch_7.2", mock$SampleID)
 
+## add in the "expected" or "unexpected" mock seq
+expect_mockqza <- read_qza(file='/Users/do/Repos/nhguano/data/qiime_qza/mock/mock.expectSeqs.qza')
+expect_mockseqs <- data.frame(expect_mockqza$data) %>% mutate(ASVid=row.names(.)) %>% pull(ASVid) %>% unique()
+  ## 374 seqs fit within 98% identity and 97% query coverage
+notexpect_mockqza <- read_qza(file='/Users/do/Repos/nhguano/data/qiime_qza/mock/mock.notexpectSeqs.qza')
+notexpect_mockseqs <- data.frame(notexpect_mockqza$data) %>% mutate(ASVid=row.names(.)) %>% pull(ASVid) %>% unique()
+length(notexpect_mockseqs)  ## 10,423 don't fit this criteria 
+
+## Use the ASVid names in the `expect_mockseqs` to classify a mock ASVid as mock expected or not
+mock$MockASV <- ifelse(mock$ASVid %in% expect_mockseqs, TRUE, FALSE)
+
+## plot the per-sample abundances of each ASV, faceted by mock sample, coloring the Mock ASV status
+## plot scatterplot, save as 'contam_mockIndexBleed'; export at 
+ggplot(mock, aes(x=SampleID, y=Reads, color=MockASV)) +
+  geom_point() +
+  facet_wrap(~SampleID, nrow = 2, scales = "free_x") +
+  scale_y_continuous(trans="log10") +
+  labs(x="", y="sequence counts\n") +
+  scale_color_manual(values=c("orangered3", "chartreuse4")) +
+  theme_bw() +
+  theme(legend.position = "top", axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+## which mock ASVs are generally only detected in high proportions?
+prevalent_ASVs_df <- mock %>% filter(MockASV == TRUE & Reads > 200)
+prevalent_ASVs <- prevalent_ASVs_df %>% select(ASVid) %>% unique()
+colnames(prevalent_ASVs) <- "featureid"
+write.table(prevalent_ASVs, file="~/Repos/nhguano/data/fasta/prevalentMockASVs.txt", row.names = FALSE, quote=FALSE, col.names = TRUE)
 

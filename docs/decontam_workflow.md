@@ -75,7 +75,7 @@ Because there were distinct ASVs being flagged depending on the batch type, I wa
 ![decontam_Reads-ASVs_ContamOrNot](https://github.com/devonorourke/nhguano/blob/master/figures/decontam_Reads-ASVs_ContamOrNot.png)
 
 A few observations from this figure:
-1. The most prevalent ASVs in our dataset are routinely identified as contaminants by the DNAplate method, but are typically not by the sequencing batch method. This makes me suspicious that there is not a sufficient statistical power to support the DNAplate-based batch filter. For example, it could be that a partiuclar ASV is marked as a contaminant in 3 of 40 DNA plates, but not so in the other 37. Nevertheless, we're seeing some ASVs in hundreds of samples, and these are likely _not_ contaminants: they're the kinds of sequence variants we expect in the bat diet (each ASV was classified and assigned taxonomic identity, explained in the next section).
+1. The most prevalent ASVs in our dataset are routinely identified as contaminants by the DNAplate method, but are typically not by the sequencing batch method. This makes me suspicious that there is not a sufficient statistical power to support the DNAplate-based batch filter. For example, it could be that a partiuclar ASV is marked as a contaminant in 3 of 40 DNA plates, but not so in the other 37. Nevertheless, we're seeing some ASVs in hundreds of samples, and these are likely _not_ contaminants: they're the kinds of sequence variants we expect in the bat diet (each ASV was classified and assigned taxonomic identity, explained in the [diversity_analyses.md](https://github.com/devonorourke/nhguano/blob/master/docs/diversity_analyses.md) document).
 2. The mock ASVs sequenced were often flagged as likely contaminants themselves. Given that these samples were not part of the DNA extraction process, the more abundant samples are only a result of sequencing cross-talk (and we know Decontam isn't built for that). Given that the mock samples often generated among the greatest per-sample read abundances per Illumina run, it's not surprising that we might be seeing the mock ASVs showing up in negative control samples at low abundances. This is explored in more detail in the next section.
 3. There are negative control samples that are _not_ identified as contaminants. These are clearly not of concern. It's unclear to me why an ASV would be unique to a control sample and not present in any mock sample or guano sample, but these are not of a concern with our data and will be filtered out.
 
@@ -107,7 +107,7 @@ Overall, the analyses thus far have suggested that:
 
 We wanted to next explore whether the composition of the sequence variants was associated with these batch effects. This required rarefying the data to conduct a series of distance estimates using nonphylogenetic and phylogenetic metrics.
 
-# Diversity analyses using all data
+# Contamination events are likley localized to individual plates, random across a given plate, and not pervasive within a plate
 ## Generating the required data: rarefying data, calculating distances, and PCoA
 We'll rarefy our data prior to calculating any community composition distances. QIIME 2 has an [alpha rarefaction function](https://docs.qiime2.org/2019.4/plugins/available/diversity/alpha-rarefaction/) whereby we can visualize how the observed richness of a sample (or other alpha diversity metrics) changes with sampling depth. Because this analysis is focused on looking at how negative control samples may or may not associate with a particular group (i.e. DNA extraction plate, or Sequencing batch) we care more about preserving as many NTC samples as possible, so we're going to focus our alpha diversity analysis only on those samples. Thus, we're first going to filter out all other non-NTC samples from the `tmp.raw_table.qza` initially imported in the [decontam R script](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R), then run the function on those NTC samples for a range of sampling depths. We'll then choose a single depth, rarefy _all_ samples at that depth, then use that rarefied table to conduct the distance estimates. All of this will happen using QIIME functions.
 
@@ -251,39 +251,130 @@ The per-sample dissimilarities were subsequently ordinated and visualized in the
 
 The first plot examines the relationship of community composition between negative control samples (purple color) and positive control samples (grey), where each label of text on the plot represents the Sequencing batch the sample was from:
 
-![imagehere:contam_pcoa_4metric_bySeq](https://github.com/devonorourke/nhguano/figures/contam_pcoa_4metric_bySeq.png)
+![imagehere:contam_pcoa_4metric_bySeq](https://github.com/devonorourke/nhguano/blob/master/figures/contam_pcoa_4metric_bySeq.png)
 
 The trends in these relationshps are strongest among the unweighted metrics, particularly the Dice-Sorensen metric. Because sequencing batches generally had samples that were extracted in similar locations and dates we would expect there to be some minor relationship to sequencing batches even among negative controls. However when abundances are taken into account, we find less of a relationship within sequencing batches. Further, when phylogenetic information is added with abundance information we find that there are negative control samples from each sequencing run in the same two dimensional space as another sequencing run. With so little overall variation explained by the unweighted metrics, we find no reason to be concerned about contamination due to the sequencing batch.  
 
 The next plot highlights how negative control samples relate to their respective positive controls with respect to the DNA plate a sample was extracted from (again, purple indicates a negative control sample, and a gray sample is a guano sample):  
 
-![imagehere:contam_pcoa_4metric_byDNA](https://github.com/devonorourke/nhguano/figures/contam_pcoa_4metric_byDNA.png)
+![imagehere:contam_pcoa_4metric_byDNA](https://github.com/devonorourke/nhguano/blob/master/figures/contam_pcoa_4metric_byDNA.png)
 
 We find that there is a greater similarity among samples with common DNAplate numbers than with sequencing batch numbers. This is precicely what we would expect if there was a minor amount of variation occurring during DNA extraction - negative control samples that looked more like _other_ plates would be an indication of reagent contamination occurring across multiple extraction experiments and would be even more concerning. Thus we'd expect both guano and negative control samples to cluster together given that the guano samples were generally extracted in batches related to the site and week they were obtained. Nevertheless, while some samples are more similar to each other within the same DNAplate, the similarity of multiple negative control samples within a single DNAplate often vary in the same ordination space. If the entirety of an extraction was contaminated, we would expect all the negative control samples to cluster together more tightly to each other than they do to the other true samples, yet we don't have any strong evidence for that.
 
 To show one example of this, we selected a single DNAplate (**DNAplate 33**) and illustrate that the specific well location of a negative control sample often does not match up in composition to the expected neighboring wells:
 
-![imagehere:contam_pcoa_4metric_byDNAwel33only](https://github.com/devonorourke/nhguano/figures/contam_pcoa_4metric_byDNAwell33only.png)
+![imagehere:contam_pcoa_4metric_byDNAwel33only](https://github.com/devonorourke/nhguano/blob/master/figures/contam_pcoa_4metric_byDNAwell33only.png)
 
 These data for just a single DNAplate indicate two further pieces of evidence suggesting that we do not need to be concerned about particular ASVs contaminating entire DNAplates:
 1. We do not see that the NTC samples are clustering together, thus there are no specific ASVs that appear to be dominating the negative control composition  
 2. The NTCs do not necessarily contain similar compositions to all the neighboring wells where they were extracted. If there was local contamination, we would expect that a given NTC sample would be similar to the surrounding wells. For example, the NTC sample in well location **B02** would be surrounded by plate well locations: A01, B01, C01, A02, C02, A03, B03, and C03. We find some evidence for that (ex. C02) but other instances where it's not apparent at all (ex. C01, A03, B03).
 
-Collectively these analyses point to random and infrequent instances where some minor amount of contamination may have occurred during DNA extraction, we expect that these instances are rare and will likely not contribute to any batch effects when analysing the various sets of samples that were extracted across different plates. Furtheremore, we find little evidence for any sequencing group bias. Overall we see no reason to remove any ASVs from these samples, and will simply remove the negative control samples from subsequent analysis.
+Collectively these analyses point to random and infrequent instances where some minor amount of contamination may have occurred during DNA extraction, we expect that these instances are rare and will likely not contribute to any batch effects when analyzing the various sets of samples that were extracted across different plates. Furthermore, we find little evidence for any sequencing group bias. Overall we see no reason to remove any ASVs from these samples, and will simply remove the negative control samples from subsequent analysis.
 
 
-# QIIME 2 data filtering
-3. Filtering out non NH-bat samples, NTCs, mock samples.
+# Mock community samples suggest there is some degree of cross-talk, but it is extremely low
+We included a positive control in each sequencing run. These biological mock samples consisted of about 20 unique sequence variants spanning 10 distinct arthropod Orders as described in Michelle Juisnio's [paper](https://doi.org/10.1111/1755-0998.12951). We were interested in using these mock samples to evaluate two different contamination features:
+1. Reagent contamination. We do not expect the same contaminants identified in the Decontam workflow (see above) to be present in the mock samples because these mock samples were not extracted in conjunction with negative controls or true samples (the mock samples consist of equimolar pools of plasmids containing the individual sequence variants).  In addition, mock samples were amplified using similar primer constructs as the guano samples, except these reactions took place using batches of reagents that were separate from those used in the true samples.  
+2. Cross talk. We _would_ expect some unexpected sequence variants to be present in the mock samples because of the sequencing process itself. These would typically be low abundance reads in the mock sample, though the particular unexpected ASVs in these mocks would most likely be derived from the most highly abundant ASVs in other samples.  
+
+We applied the following code to perform the necessary tasks to complete this evaluation:
+1. Subset the original ASV table (consisting of DADA2-filtered reads from all samples) to create a  mock-only ASV table  
+2. Use QIIME's [quality control]() plugin to assign ASVs in the mock ASV table as either "expected" or "unexpected". We aligned all ASV sequences observed in each mock samle to a [fasta file containing the known mock sequences](), and considered any sequence within 99% identity as "expected", while any other sequence as "unexpected". We then created a list of the expected and unexpected ASVid's, and added applied that information to the mock ASV table in the [R script for this workflow](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R) to create the resulting visualizations. In addition, the samples that were verified as expected mock samples were ultimately removed from analysis (as mock sample ASVs can also result in cross-talk _into_ true samples).  
+> `$ALLTABLE` refers to the initial [ASV table](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza) imported in this workflow containing all DADA2-processed samples
+> `$ALLSEQS` refers to the initial [ASV fasta](https://github.com/devonorourke/nhguano/data/qiime_qza/repSeqs/tmp.raw_repSeqs.qza) file associated with the ASV table
+> `$META` refers to the QIIME-formatted metadata file [qiime_allbat_meta.tsv](https://github.com/devonorourke/nhguano/blob/master/data/metadata/qiime_allbat_meta.tsv)
+> `$MOCKSEQ` refers to the QIIME-formatted mock sequences file [partialCOImock.seqs.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/mock/partialCOImock.seqs.qza)
+
 ```
-## filtering table
+## filtering data table to retain only mock samples and sequences
 qiime feature-table filter-samples \
-  --i-table all.raw_table.qza --o-filtered-table study.raw_table.qza \
-  --m-metadata-file "$META" --p-where "SampleID='subject-1'"
+  --i-table "$TABLE" \
+  --m-metadata-file "$META" --p-where "SampleType='mock'" \
+  --o-filtered-table mock.table.qza
 
-## filtering repSeqs
+## filter the original fasta file to retain only the ASVs remaining in that mock table
 qiime feature-table filter-seqs \
-  --i-data all.raw_repSeqs.qza --i-table study.raw_table.qza --o-filtered-data study.raw_repSeqs.qza
+  --i-data tmp.raw_repSeqs.qza \
+  --i-table mock.table.qza \
+  --o-filtered-data mock.seqs.qza
+
+## run VSEARCH to align all ASVs in mock samples to known mock reference sequences
+MOCKSEQ=/mnt/lustre/macmaneslab/devon/guano/mockFastas/partialCOImock.seqs.qza
+ALLSEQS=/mnt/lustre/macmaneslab/devon/guano/paper3/qiime/select_libs/reads/tmp.raw_repSeqs.qza
+qiime quality-control exclude-seqs --p-method vsearch \
+  --i-query-sequences $ALLSEQS \
+  --i-reference-sequences $MOCKSEQ \
+  --p-perc-identity 0.98 \
+  --o-sequence-hits mock.expectSeqs.qza \
+  --o-sequence-misses mock.notexpectSeqs.qza
 ```
+
+The ASVs identified in the [mock.expectSeqs.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/mock/mock.expectSeqs.qza) file served as input for the final section of the [R script for this workflow](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R). We assigned any ASVid identified by the above alignment as a MockASV in the following plot.
+
+![imagehere:contam_mockIndexBleed](https://github.com/devonorourke/nhguano/blob/master/figures/contam_mockIndexBleed.png)
+
+Interestingly, there were **347 ASVs** that aligned within 98% identity and 97% coverage** among the 10,797 ASVs in the entire dataset. However, as the plot above indicates, these ASVs were uniformly extremely low abundant sequences relative to the expected mock sequences: the highest _unexpected_ ASV contained just 14 reads, with a mean of just 8.3 reads per unexpected ASV. This is exactly what we would expect: a very small proportion of cross talk in terms of read abundance, but given the large number of unique sequence variants among the entirety of the guano samples in the dataset, it's unsurprising that a few hundred of these are misassigned to a mock sample. On a per-sample basis, there are 321 NH guano samples that contain at least one of these mock-associated ASVs, but there are always very few sequence counts attributed to any one of those 25 mock-associated ASVs. While there was a maximum of 249 sequences detected for a single mock-associated ASV in a single sample, the average number with which any one mock-associated ASV is detected in a sample is just 2 sequences. Among all 25 of these ASVs, we detect a mean of 27 sequences and a median of 15 sequences. These data suggest that while cross-talk is quite pervasive from our mock samples into the broader population of sequence samples, but this is expected given that these mock samples were typically more deeply sequenced per run than other guano samples. Moreover, the overal abundance of these mock ASVs are extremely low, suggesting that abundance-based diversity metrics will not be influenced by this degree of cross-talk.
+
+In addition, we can clearly see that just a few of these ASVs are repeatedly detected within the mock samples themselves, and these are very likely our expected mock sequences. Just 24 ASVs are present in at least 5 of 10 mock samples, and there are just 25 distinct ASVs with at least 200 reads per sample. We used the earlier classification results to examine these 25 ASVs and found that every one matched one of the expected mock taxonomies. Thus, these sequence variants likely represent those directly from the mock sample and should be removed from the final dataset. As a second comparison we also queried these 25 ASV sequences with the nr Database in NCBI using their online BLAST application; as expected, nearly all sequences were matches for the expected taxonomies, and the two instances where they were not observed to be matches were when no suitable match was found (thus they were not the _incorrect_ assignment). The list of these [25 ASV identifiers is found here](https://github.com/devonorourke/nhguano/data/fasta/prevalentMockASVs.txt).
+
+Collectively we find that  there is clear evidence for per-library cross-talk. though the abundances with which those sequence-based contamination events occur is very low. This suggests that we are best suited to utilize diversity metrics that incorporate abundance information in our analyses, otherwise we will likely be inflating our alpha diversity estimates, and likely inflating the similarity between samples that are otherwise less related. We therefore proceed by removing all mock and negative control samples, as well as removing the 25 ASVs identified as likely mock sequences in out dataset.
+
+# Data filtering
+
+## Removing control samples and ASVs
+We first remove all control samples from the dataset. The [25 ASVs associated with mock samples](https://github.com/devonorourke/nhguano/data/fasta/prevalentMockASVs.txt) are also discarded, as well as any ASVs that were associated exclusively with negative controls.  
+> `$ALLTABLE` refers to the initial [ASV table](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza) imported in this workflow containing all DADA2-processed samples
+> `$ALLSEQS` refers to the initial [ASV fasta](https://github.com/devonorourke/nhguano/data/qiime_qza/repSeqs/tmp.raw_repSeqs.qza) file associated with the ASV table
+> `$META` refers to the QIIME-formatted metadata file [qiime_allbat_meta.tsv](https://github.com/devonorourke/nhguano/blob/master/data/metadata/qiime_allbat_meta.tsv)
+> `$MOCKASVs` refers to the [25 mock ASV sequences](https://github.com/devonorourke/nhguano/data/fasta/prevalentMockASVs.txt)
+
+```
+## remove all negative and positive control samples from ASV table
+qiime feature-table filter-samples \
+  --i-table all.raw_table.qza --o-filtered-table nocontrol_table.qza \
+  --m-metadata-file "$META" \
+  --p-where "StudyID='oro15' OR StudyID='oro16'"  
+
+## Remove the ASVs associated with the known mock sequences
+qiime feature-table filter-samples \
+  --i-table nocontrol_table.qza --o-filtered-table nocontrol_nomockASV_table.qza \
+  --m-metadata-file "$MOCKASVs" --p-exclude-ids
+
+## Drop any samples that no long have any ASVs
+qiime feature-table filter-features \
+  --i-table nocontrol_nomockASV_table.qza \
+  --p-min-samples 1 \
+  --o-filtered-table tmpfiltd-table.qza
+
+## Drop any ASVs that no long have any samples  
+qiime feature-table filter-samples \
+  --i-table tmpfiltd-table.qza \
+  --p-min-features 1 \
+  --o-filtered-table nocontrol_nomockASV_table.qza
+
+rm tmpfiltd-table.qza nocontrol_table.qza
+```
+
+## Removing bat (host) sequences
+We next take that temporary `nocontrol_nomockASV_table.qza` table and identify all bat host sequences in the samples. We're going to use two separate databases to query this dataset:
+
+1. The first database consists of a selection of host references designed specifically for this project. These sequences contain references for bat species known to inhabit New England and New York. We also included other reference sequences assigned to organisms that our lab had been conducting DNA extractions with at the same time this project was being conducted. Full details describing the database design are available - see [hostCOI_database_design](https://github.com/devonorourke/nhguano/blob/master/docs/hostCOI_database_design.md).
+2. A second database consisting of millions of COI sequences from arthropod and non-arthropod animals, as well as non-animal COI from subjects like fungi and microeukaryotes. The construction of this database is described in the [broadCOI_database_design.md](https://github.com/devonorourke/nhguano/blob/master/docs/broadCOI_database_design.md) file.
+
+ASVs that were considered strong matches from either database were removed from the `nocontrol_nomockASV_table.qza` table:
+> `$HOSTDBSEQ` refers to the QIIME-formatted sequence file for the host COI database
+> `$HOSTDBTAX` refers to the QIIME-formatted taxonomy file for the host COI database
+> `$BIGDBSEQ` refers to the QIIME-formatted sequence file for the broad COI database
+> `$BIGDBTAX` refers to the QIIME-formatted taxonomy file for the broad COI database
+
+```
+## filtering table for host asvs
+qiime feature-table filter-samples \
+  --i-table nocontrol_nomockASV_table.qza --o-filtered-table nocontrol_nomockASV_table.qza \
+  --m-metadata-file "$MOCKASVs" --p-exclude-ids
+--i-table  nocontrol_nomockASV_table.qza
+```
+
 
 ## Next steps in analysis
-The filtered dataset was used as input into the [diversity analyses](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md) pipeline, which included normalizing the data by rarefying, and estimating measures of alpha and beta diversity.
+We next perform a series of filtering steps to remove host (bat) sequences, as well as filter out negative control samples, mock samples, and the prevalent mock ASVs identified above. We use taxonomic information assigned to each sequence to either discard or retain the remaining ASVs based on whether or not the particular ASV contains at least Family-rank information and are classified as arthropods. We then conduct a number of diversity estimates with several QIIME 2 plugins. All of these steps are described in the [diversity analyses](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md) document.
