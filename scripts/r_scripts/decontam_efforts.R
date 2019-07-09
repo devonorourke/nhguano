@@ -941,3 +941,56 @@ merge(nb_bigDB_df, long_df, all.x=TRUE) %>%
 batASVlist <- data.frame(c(as.character(nb_bigDB_df$ASVid), as.character(vs_bigDB_df$ASVid), as.character(vs_hostDB_df$ASVid))) %>% unique()
 colnames(batASVlist) <- c("featureid")
 write.table(batASVlist, file="~/Repos/nhguano/data/host/batASVs.txt", quote=FALSE, col.names = TRUE, row.names = FALSE)
+
+
+###############################################################################
+## Final considerations concern discarding sequences that are:
+## 1. Non arthropod
+## 2. Are arthropod, but have limited taxonomic information (ex. just assigned to Phylum, no Class/Order/Family name, etc.)
+
+## Assessing how many ASVs/reads/samples are droped if we limit to Family-named taxa only
+##############################################################################
+
+## If filtering by requiring family name, what fraction of reads/ASVs are discarded? 
+## any highly preavlent or abundant ASVs?
+## Any non-arthropod ASVs highly prevalent (ex. bat sequence ASV-3 was...)
+
+## generate plot showing abundance/prevalence by ASV family group (as points in dplyr summary)..
+## but color by their Phylum as arthropod or not or NA
+
+## import metadata again
+metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
+metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
+metadata <- as.data.frame(metadata)
+
+## import taxonomy, this time using VSEARCH from bigDB
+vstaxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax.tsv", delim="\t")
+vstaxonomy <- vstaxonomy %>% separate(., 
+                                  col = Taxon, 
+                                  sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
+  select(-kingdom_name)
+vstaxonomy <- as.data.frame(apply(vstaxonomy, 2, function(y) gsub(".__", "", y)))
+vstaxonomy <- as.data.frame(apply(vstaxonomy, 2, function(y) gsub("^$|^ $", NA, y)))
+vstaxonomy <- as.data.frame(apply(vstaxonomy, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
+colnames(vstaxonomy)[1] <- "ASVid"
+
+## import ASV-filtered, no mock/ncontrol data this time
+filtqzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/nocontrol_nomockASV_nobatASVs_table.qza"
+features <- read_qza(filtqzapath)
+mat.tmp <- features$data
+rm(features)
+df.tmp <- as.data.frame(mat.tmp)
+rm(mat.tmp)
+df.tmp$OTUid <- rownames(df.tmp)
+rownames(df.tmp) <- NULL
+flong_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
+rm(df.tmp)
+colnames(flong_df) <- c("ASVid", "SampleID", "Reads")
+flong_df <- merge(flong_df, metadata) %>% merge(., vstaxonomy)
+tmp1 <- flong_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrange(-nReads) %>% mutate(ASValias=paste0("ASV-", row.names(.))) %>% select(-nReads)
+flong_df <- merge(flong_df, tmp1)
+rm(vstaxonomy, metadata)
+
+## How many ASVs contain at least Order/Family/Genus information?
+asvsumry <- flong_df %>% group_by(ASVid, class_name, order_name, family_name, genus_name) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+
