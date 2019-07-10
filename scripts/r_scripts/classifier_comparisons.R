@@ -110,11 +110,10 @@ rm(metadata)
 ## merge separate dataasets for each taxonomy file:
 vs_long <- merge(flong_df, vstaxa)
 nb_long <- merge(flong_df, nbtaxa)
-rm(flong_df)
 
 ## How many ASVs contain at least Order/Family/Genus information?
-vs_asvsumry <- vs_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
-nb_asvsumry <- nb_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+vs_asvsumry <- as.data.frame(vs_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)))
+nb_asvsumry <- as.data.frame(nb_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)))
 ## it looks like among the most prevalent ASVs (which are typically also those generating the most reads) both VSEARCH and Naive Bayes agree
 ## however there are a few instances in which Naive Bayes provides additional information where VSEARCH does not
 ## would be great to work out these differences in a hybrid classifier but need to test first before using on real dataset
@@ -123,7 +122,7 @@ nb_asvsumry <- nb_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Ord
 ## Because there are a few highly prevalent ASVs that Naive Bayes appears to classify that VSEARCH missed, let's gather those
 
 ## Gathering ASVs that have less than Family-name information in VSEARCH method 
-vs_miss_df <- vs_asvsumry %>% filter(is.na(Family))
+vs_miss_df <- as.data.frame(vs_asvsumry %>% filter(is.na(Family)))
   ## almost all of these contain ZERO information (Undefined through Class rank)
   ## those that contain Order information only tend to be lepidopterans, which we have found tend to cluster a lot with this amplicon
   ## these are often cases in which multipe Families are good hits within 97% identity, so the name gets collapsed to just the Order
@@ -139,45 +138,31 @@ nb_vsmiss_df <- nb_vsmiss_df %>% replace(is.na(.), "Undefined")
 nb_vsmiss_withOrder_df <- nb_vsmiss_df %>% filter(Order != "Undefined")
   ## lots are. and we're retaining most of the reads; other ASVs we're missing tend to be in fewer samples or with lower total read coutns
 
-rm(nb_vsmiss_df, nb_vsmiss_withOrder_df, vs_miss_df, vstaxa, nbtaxa, vs_long, nb_long)
+rm(nb_vsmiss_df, nb_vsmiss_withOrder_df, vs_miss_df)
 ################################################################################
-## Hybrid classifications
-## Going to combine both datasets;
-## When VSEARCH value is empty, replace with Naive Bayes
-## When VSEARCH is filled and Naive Bayes is empty, leave filled
-## If VSEARCH is filled and Naive Bayes is filled, apply LCA process to that ASV
-## If VSEARCH is empty and Naive Bayes is empty, leave empty 
+## Semi-hybrid classification
+## Trusting the majority of VSEARCH information because it retains the LCA information when multiple best hits available
+## (and is therefore more conservative)
+## 1. Identify all taxa with at least Order-level information assigned by VSEARCH; keep these ASVs classified as is
+## 2. For all other ASVs, replace with Naive Bayes information 
+## 3. Identify if any remaining taxa that are highly prevalent are missing and search BOLD database manually
 ################################################################################
 
-## combine both taxonomies into single string:
-tmp_nb <- nb_asvsumry %>% ungroup() %>% 
-  select(-Reads, -ASValias) %>% 
-  gather(Samples, Kingdom, Phylum, Class, Order, Family, Genus, Species, value = 'nRank') %>% 
-  rename(Level=Samples)
+vsearch_asvs2keep <- vs_asvsumry %>% filter(!is.na(Family)) %>% pull(ASVid)
+nbayes_asvs2use <- nb_asvsumry %>% filter(!ASVid %in% vsearch_asvs2keep) %>% filter(!is.na(Family)) %>% pull(ASVid)
 
-tmp_vs <- vs_asvsumry %>% ungroup() %>% 
-  select(-Reads, -ASValias) %>% 
-  gather(Samples, Kingdom, Phylum, Class, Order, Family, Genus, Species, value = 'vRank') %>% 
-  rename(Level=Samples)
+## combine these datasets together:
+vsearch_taxa_tmp <- vs_long %>% filter(ASVid %in% vsearch_asvs2keep)
+nbayes_taxa_tmp <- nb_long %>% filter(!ASVid %in% vsearch_asvs2keep) %>% filter(!is.na(Family))
+used_taxa_tmp <- rbind(vsearch_taxa_tmp, nbayes_taxa_tmp)
+usedASVs <- used_taxa_tmp %>% pull(ASVid) %>% unique()
+unused_taxa_tmp <- flong_df %>% filter(!ASVid %in% usedASVs)
 
-tmp_all <- merge(tmp_nb, tmp_vs, by=c("ASVid", "Level"))
-rm(tmp_nb, tmp_vs)
+## what kind of taxa are still unclassified? 
+unused_taxa_sumry <- unused_taxa_tmp %>% group_by(ASVid) %>% 
 
-## generate the comparison Status for each level for each ASV
-tmp_all$Status <- ""
-tmp_all$Status <- ifelse(is.na(tmp_all$nRank) & is.na(tmp_all$vRank), "EMPTY", tmp_all$Status)      ## if both empty, leave empty
-tmp_all$Status <- ifelse(is.na(tmp_all$nRank) & !is.na(tmp_all$vRank), "VSEARCH", tmp_all$Status)   ## if VSEARCH with match and NBAYES empty
-tmp_all$Status <- ifelse(!is.na(tmp_all$nRank) & is.na(tmp_all$vRank), "NBAYES", tmp_all$Status)    ## if NBAYES with Match and VSEARCH empty
-tmp_all$Status <- ifelse(!is.na(tmp_all$nRank) & !is.na(tmp_all$vRank), "LCA", tmp_all$Status)      ## apply LCA to these matches
+unused_asvs <- vs_asvsumry %>% filter(!ASVid %in% vsearch_asvs2keep) %>% filter(!ASVid %in% nbayes_asvs2use) %>% pull(ASVid)
+  ## 2766 ASVs still lack sufficient (Order name) information 
 
-Status_df <- tmp_all %>% select(ASVid, Level, Status)
-
-## how many of each status at each level?
-Status_df %>% 
-  group_by(Level, Status) %>% 
-  tally() %>% 
-  spread(Level, n) %>% 
-  select(Status, Kingdom, Phylum, Class, Order, Family, Genus, Species)
-  ## LCA for most (because most are common); but many in NBAYES group reflect that this classifier can help recover lost info not in VSEARCH
-
-## 
+## how many of the remaining "unused" ASVs have many reads and/or high prevalence? 
+unusedASV_sumry <- flong_df %>% filter(ASVid %in% unused_asvs) %>% group_by(ASVid) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))

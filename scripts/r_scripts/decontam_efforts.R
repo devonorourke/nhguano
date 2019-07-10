@@ -945,50 +945,199 @@ colnames(batASVlist) <- c("featureid")
 write.table(batASVlist, file="~/Repos/nhguano/data/host/batASVs.txt", quote=FALSE, col.names = TRUE, row.names = FALSE)
 
 
+################################################################################
+## the same dataset was classified using either:
+# A. VSEARCH (97% identity, 94% coverage)
+# B. Naive Bayes classifier (default settings in QIIME 2)
+
+## First two plots explore:
+#1. How often do the two classifiers agree (same taxon name per level for each ASV)
+#2. How often do the two classifiers assign some information or not (per ASV, per taxon level)
+################################################################################
+
+## import ASValias values used in inital plots (keeping consistent with earlier plots in decontam work)
+asvkey <- read_csv(file="~/Repos/nhguano/data/tax/asvkey_allASVs.csv")
+
+## import VSEARCH taxonomy
+vstaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax_c94p97.tsv", delim="\t")
+vstaxa <- vstaxa %>% separate(., col = Taxon, 
+                              sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
+vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub(".__", "", y)))
+vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("^$|^ $", NA, y)))
+vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
+vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Unassigned", NA, y)))
+colnames(vstaxa)[1] <- "ASVid"
+vstaxa <- merge(vstaxa, asvkey)
+
+## import Naive Bayes taxonomy
+nbtaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_nbtax.tsv", delim="\t")
+nbtaxa <- nbtaxa %>% separate(., col = Taxon, 
+                              sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
+nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub(".__", "", y)))
+nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("^$|^ $", NA, y)))
+nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
+nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Unassigned", NA, y)))
+colnames(nbtaxa)[1] <- "ASVid"
+nbtaxa <- merge(nbtaxa, asvkey)
+
+rm(asvkey)
+## common and different values per level:
+matchfunction <- function(TaxonLevel){
+  vstmp <- vstaxa %>% select(ASVid, TaxonLevel) %>% filter(complete.cases(.)) %>% unite(., "vsinput", c("ASVid", TaxonLevel)) %>% pull(vsinput)
+  nbtmp <- nbtaxa %>% select(ASVid, TaxonLevel) %>% filter(complete.cases(.)) %>% unite(., "nbinput", c("ASVid", TaxonLevel)) %>% pull(nbinput)
+  Match <- length(intersect(vstmp, nbtmp))
+  Diff <- length(setdiff(vstmp, nbtmp))
+  data.frame(TaxonLevel, Match, Diff)
+}
+
+## table calculating number of times they disagree/match, but note that these are ignoring comparisons where one might be NA
+CompTable <- rbind(matchfunction("Kingdom"), matchfunction("Phylum"), matchfunction("Class"),
+                   matchfunction("Order"), matchfunction("Family"), matchfunction("Genus"), matchfunction("Species"))
+
+## plot table as image; save as 'taxcomp_matchStatus'; export at 275x300
+formattable(CompTable)
+
+## how often does a classifier assign a name or not?
+emptyfunction <- function(TaxonLevel){
+  vstmp <- vstaxa %>% select(ASVid, TaxonLevel) %>% rename(vtax=TaxonLevel) 
+  nbtmp <- nbtaxa %>% select(ASVid, TaxonLevel) %>% rename(ntax=TaxonLevel)
+  alltmp <- merge(vstmp, nbtmp)
+  alltmp$Status <- ""
+  alltmp$Status <- ifelse(is.na(alltmp$vtax) & is.na(alltmp$ntax), "both missing", alltmp$Status)
+  alltmp$Status <- ifelse(is.na(alltmp$vtax) & !is.na(alltmp$ntax), "vsearch missing only", alltmp$Status)
+  alltmp$Status <- ifelse(!is.na(alltmp$vtax) & is.na(alltmp$ntax), "nbayes missing only", alltmp$Status)
+  alltmp$Status <- ifelse(!is.na(alltmp$vtax) & !is.na(alltmp$ntax), "neither missing", alltmp$Status)
+  alltmp %>% group_by(Status) %>% tally() %>% spread(Status, n) %>% mutate(Level=TaxonLevel)
+}
+
+EmptyTable <- rbind(emptyfunction("Phylum"), emptyfunction("Class"),emptyfunction("Order"), 
+                    emptyfunction("Family"), emptyfunction("Genus"), emptyfunction("Species"))
+EmptyTable <- EmptyTable %>% select(Level, `both missing`, `neither missing`, `nbayes missing only`, `vsearch missing only`)
+tmpk <- data.frame(emptyfunction("Kingdom"), "nbayes missing only"=0)
+colnames(tmpk) <- c("both missing", "neither missing", "vsearch missing only", "Level", "nbayes missing only")
+tmpk <- tmpk %>% select(Level, `both missing`, `neither missing`, `nbayes missing only`, `vsearch missing only`)
+EmptyTable <- rbind(tmpk, EmptyTable)
+
+## plot table as image; save as 'taxcomp_missingStatus'; export at 650x350
+formattable(EmptyTable, 
+            caption="Instances where one or both classifiers do not assign name to an ASV")
+
+rm(CompTable, EmptyTable, tmpk)
+
+################################################################################
+## Classifier specifics: among our most prevalent ASVs, which are assigned names and which aren't?
+################################################################################
+
+## import metadata again
+metadata <- read_csv(file="~/Repos/nhguano/data/metadata/nhbat_meta.csv")
+metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
+metadata <- as.data.frame(metadata)
+
+## import ASV-filtered, no mock/ncontrol data this time
+filtqzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/sampleOnly_nobatASV_table.qza"
+features <- read_qza(filtqzapath)
+mat.tmp <- features$data
+rm(features)
+df.tmp <- as.data.frame(mat.tmp)
+rm(mat.tmp)
+df.tmp$OTUid <- rownames(df.tmp)
+rownames(df.tmp) <- NULL
+flong_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
+rm(df.tmp)
+colnames(flong_df) <- c("ASVid", "SampleID", "Reads")
+flong_df <- merge(flong_df, metadata, all.x = TRUE) %>% merge(., asvkey)
+rm(metadata)
+
+## merge separate dataasets for each taxonomy file:
+vs_long <- merge(flong_df, vstaxa)
+nb_long <- merge(flong_df, nbtaxa)
+
+## How many ASVs contain at least Order/Family/Genus information?
+vs_asvsumry <- as.data.frame(vs_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)))
+nb_asvsumry <- as.data.frame(nb_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)))
+## it looks like among the most prevalent ASVs (which are typically also those generating the most reads) both VSEARCH and Naive Bayes agree
+## however there are a few instances in which Naive Bayes provides additional information where VSEARCH does not
+## would be great to work out these differences in a hybrid classifier but need to test first before using on real dataset
+## would need to include a least common ancestor approach for instances where VSEARCH and Naive Bayes disagree at some level
+
+## Because there are a few highly prevalent ASVs that Naive Bayes appears to classify that VSEARCH missed, let's gather those
+
+## Gathering ASVs that have less than Family-name information in VSEARCH method 
+vs_miss_df <- as.data.frame(vs_asvsumry %>% filter(is.na(Family)))
+## almost all of these contain ZERO information (Undefined through Class rank)
+## those that contain Order information only tend to be lepidopterans, which we have found tend to cluster a lot with this amplicon
+## these are often cases in which multipe Families are good hits within 97% identity, so the name gets collapsed to just the Order
+
+## How many Naive Bayes-classified ASVs have some information for those VSEARCH ASVs that lack at least Family-name information?
+nb_vsmiss_df <- as.data.frame(nb_asvsumry %>% filter(ASVid %in% vs_miss_df$ASVid))
+## the most prevalent ASVs are frequently just one of a handful of taxa (ex. Phyllophaga hirsuta)..
+## ..and previously unclassified taxa (by VSEARCH) now have information 
+
+## How many of these ASVs aren't classified to at least Family-rank within Naive Bayes data too?
+nb_vsmiss_df[3:8] <- lapply(nb_vsmiss_df[3:8], as.character)
+nb_vsmiss_df <- nb_vsmiss_df %>% replace(is.na(.), "Undefined")
+nb_vsmiss_withOrder_df <- nb_vsmiss_df %>% filter(Order != "Undefined")
+## lots are. and we're retaining most of the reads; other ASVs we're missing tend to be in fewer samples or with lower total read coutns
+
+rm(nb_vsmiss_df, nb_vsmiss_withOrder_df, vs_miss_df)
+################################################################################
+## Semi-hybrid classification
+## Trusting the majority of VSEARCH information because it retains the LCA information when multiple best hits available
+## (and is therefore more conservative)
+## 1. Identify all taxa with at least Order-level information assigned by VSEARCH; keep these ASVs classified as is
+## 2. For all other ASVs, replace with Naive Bayes information 
+## 3. Identify if any remaining taxa that are highly prevalent are missing and search BOLD database manually
+################################################################################
+
+vsearch_asvs2keep <- vs_asvsumry %>% filter(!is.na(Family)) %>% pull(ASVid)
+nbayes_asvs2use <- nb_asvsumry %>% filter(!ASVid %in% vsearch_asvs2keep) %>% filter(!is.na(Family)) %>% pull(ASVid)
+
+## combine these datasets together:
+vsearch_taxa_tmp <- vs_long %>% filter(ASVid %in% vsearch_asvs2keep)
+nbayes_taxa_tmp <- nb_long %>% filter(!ASVid %in% vsearch_asvs2keep) %>% filter(!is.na(Family))
+used_taxa_tmp <- rbind(vsearch_taxa_tmp, nbayes_taxa_tmp)
+usedASVs <- used_taxa_tmp %>% pull(ASVid) %>% unique()
+unused_taxa_tmp <- flong_df %>% filter(!ASVid %in% usedASVs)
+
+## what kind of taxa are still unclassified? 
+asvkey <- read_csv(file="~/Repos/nhguano/data/tax/asvkey_allASVs.csv")
+unused_taxa_sumry <- unused_taxa_tmp %>% group_by(ASVid) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+unused_taxa_sumry <- merge(unused_taxa_sumry, asvkey)
+rm(asvkey)
+## 2766 ASVs still lack sufficient (Order name) information 
+## the single most abundant ASV is still unclassified
+
+## generating a list of ASVs that are in either >= 20 samples (about 1% of our dataset), or have > 10,000 reads
+## make a list of these ASVs, then generate a fasta with only these sequences and query BOLD to see if any matches
+## 52 in all...
+checkASVs <- unused_taxa_sumry %>% filter(Reads >= 10000 | Samples >= 20) %>% select(ASVid)
+colnames(checkASVs) <- "featureid"
+write.table(checkASVs, file="~/Repos/nhguano/data/tax/outlierASVstocheckinBOLD.txt", row.names = FALSE, col.names = TRUE, quote = FALSE)
+## BOLD data suggeted that just a handful of these are most are either:
+## 1. unlised by VSEARCH because they align less than 97% id to any target, and/or...
+## 2. they have multiple best hits above or below 97%, but often to multiple Families or even Orders, so LCA isn't applying to these
+
+
 ###############################################################################
 ## Final considerations concern discarding sequences that are:
 ## 1. Non arthropod
 ## 2. Are arthropod, but have limited taxonomic information (ex. just assigned to Phylum, no Class/Order/Family name, etc.)
-
-## Note that we used two different classifiers: Naive Bayes and VSEARCH
-## ..see: https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/classifier_comparisons.R
 ##############################################################################
 
-## If filtering by requiring family name, what fraction of reads/ASVs are discarded? 
-## any highly preavlent or abundant ASVs?
-## Any non-arthropod ASVs highly prevalent (ex. bat sequence ASV-3 was...)
+## Retaining only Orders that were in at least 1% of our samples:
+orderkeeplist <- c("Araneae", "Blattodea", "Coleoptera", "Diptera", "Ephemeroptera",
+                   "Hemiptera", "Hymenoptera", "Lepidoptera", "Megaloptera", "Neuroptera",
+                   "Psocodea", "Trichoptera")
+filt_taxa_tokeep <- used_taxa_tmp %>% filter(Order %in% orderkeeplist) %>% 
+  select(ASVid, Class, Order, Family, Genus, Species)
 
-## generate plot showing abundance/prevalence by ASV family group (as points in dplyr summary)..
-## but color by their Phylum as arthropod or not or NA
+## Add in the 7 ASVs manaully vetted with BOLD online 
+boldupdates <- read.csv("~/Repos/nhguano/data/tax/manual_bold_asvupdates.csv")
+filt_taxa_tokeep <- rbind(filt_taxa_tokeep, boldupdates) %>% distinct
 
+## Merge this taxonomy information with original data set to contain metadata, updated taxonomy information, and read counts
+tmp1 <- merge(flong_df, filt_taxa_tokeep)
+tmp2 <- merge(tmp1, metadata) %>% select(-SampleType, -Date, -is.neg)
 
-## anything not arthropod in there?
-nb_notarttax <- nb_long %>% filter(Phylum != 'Arthropoda')
-  ## yep; a bunch of ASVs for Nematodes and Rotifers, plus a few squirrels, slugs, and other junk we don't want
-
-## how many of those reads are contributing to the entire project?
-(sum(nb_notarttax$Reads) / sum(nb_long$Reads)) * 100
-  ## just 0.24% of the overall read abundance. good!
-
-## filtering for arthropod only; requring at least Family-name information retained
-## first, what DOES NOT have that Family info, but is an Arthropod?
-nb_arthonly_noFam <- nb_long %>% filter(Phylum=="Arthropoda" & is.na(Family))
-nb_arthonly_hasFam <- nb_long %>% filter(Phylum=="Arthropoda" & !is.na(Family))
-
-## how many ASVs and how many reads to we toss by requiring at least Family-level info?
-nb_noFam_sumry <- nb_arthonly_noFam %>% summarise(Reads=sum(Reads), ASVs=n_distinct(ASVid))
-nb_hasFam_sumry <-nb_arthonly_hasFam %>% summarise(Reads=sum(Reads), ASVs=n_distinct(ASVid))
-rbind(dropData=nb_noFam_sumry, keepData=nb_hasFam_sumry)
-  ## dropping about 25% of all reads and about 1/3 of all ASVs. yikes.
-  
-
-## how many ASVs and how many reads to we toss by requiring at least Order-level info?
-nb_noOrd_sumry <- nb_long %>% filter(Phylum=="Arthropoda" & is.na(Order)) %>% summarise(Reads=sum(Reads), ASVs=n_distinct(ASVid))
-nb_hasOrd_sumry <-nb_long %>% filter(Phylum=="Arthropoda" & !is.na(Order)) %>% summarise(Reads=sum(Reads), ASVs=n_distinct(ASVid))
-rbind(dropData=nb_noOrd_sumry, keepData=nb_hasOrd_sumry)
-  ## dropping about 20% of all reads and about 1/8 of all ASVs. more diversity, but not much more data...
-
-
-## How many ASVs contain at least Order/Family/Genus information?
-vs_asvsumry <- vs_long %>% group_by(ASVid, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
-nb_asvsumry <- nb_long %>% group_by(ASVid, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+## write this file for subsequent plotting efforts in future scripts:
+write.csv(tmp2, file="~/Repos/nhguano/data/filtered_dataset.csv")

@@ -380,9 +380,9 @@ qiime feature-classifier classify-consensus-vsearch \
 
 ## classify ASVs with broad COI database
 qiime feature-classifier classify-consensus-vsearch \
-  --i-query "$READS" --o-classification tmp.raw_bigDB_VStax_c89p97.qza
+  --i-query "$READS" --o-classification tmp.raw_bigDB_VStax_c89p97.qza \
   --i-reference-reads "$BIGDBSEQ" --i-reference-taxonomy "$BIGDBTAX" \
-  --p-maxaccepts 1000 --p-perc-identity 0.97 --p-query-cov 0.89 --p-strand both --p-threads 24 \
+  --p-maxaccepts 1000 --p-perc-identity 0.97 --p-query-cov 0.89 --p-strand both --p-threads 24
 
 ## train the Naive Bayes classifier using the broad COI database
 qiime feature-classifier fit-classifier-naive-bayes \
@@ -441,31 +441,24 @@ To address whether these data were being classified as different taxa or if the 
 
 ![imagehere:taxcomp_missingStatus](https://github.com/devonorourke/nhguano/figures/taxcomp_missingStatus.png)
 
-It's clear that the Naive Bayes classifier and VSEARCH tend to agree more than they disagree, and that when these disagreements arise, it tends to be because VSEARCH is not assigning any information at a particular level (especially at Kingdom through Order levels). This is likely partly due to the fact that the QIIME implementation of VSEARCH applies a least common ancestor (LCA) process while the Naive Bayes version does not. For the sake of our study, we took the more conservative approach and retained only the VSEARCH results. More testing is needed with the Naive Bayes classifier to determine it's performance characteristics among COI datasets, but it appears quite promising in that it can frequently assign at least _some_ information to data that would otherwise be Undefined by the alignment-based approaches like VSEARCH. This may be valuable especially to those working with COI datasets where more diverse Class or Phyla taxa are expected (whereas with New England bats all we expect are arthropods, and principally just spiders and insects).
 
-
-
-
-
+It's clear that the Naive Bayes classifier and VSEARCH tend to agree far more than they disagree, and that when these disagreements arise, it tends to be because VSEARCH is not assigning any information at a particular level (especially at Kingdom through Order levels). This is quite likely due to the nature of how we've defined the VSEARCH parameters: any value that is less than 97% identical across at least 94% of the query is left undefined, whereas the supervised learning classifier has no alignment parameters; in fact, the default confidence value of 70% can be applied recursively at every taxonomic level. In addition, the QIIME implementation of VSEARCH applies a least common ancestor (LCA) process while the Naive Bayes version does not; thus even what a good candidate is detected about the alignment parameter thresholds, you can lose information in the instances where multiple best hits exist and taxonomic information disagree. For the sake of our study, we adopted a relatively conservative approach and retained any  VSEARCH result that contained at least Order-level information. For any ASV that was not named to at least Order rank, we substituted the Naive Bayes classification instead. While this helped rescue several ASVs, we found that most of the ASVs being rescued belonged to just a handful of taxa (especially a Scarab beetle in the _Phyllophaga_ genus). We discovered that a few of our most prominent ASVs were still yet to have any classification assigned to them, so we queried BOLD directly using a list of ASVs that were present in at least 1% of all samples or had at least 10,000 reads among all samples (this was 52 ASVs in all). Ultimately the vast majority of these ASVs reported no significant matches and are likely either a sequence variant that contains no moderately similar alignment among available reference sequences or is some chimeric sequence that was not filtered during the DADA2 pipeline. A few taxa, however, did meet the criteria of having at least 97% identity and these were added to update the previously undefined list. We finished our filtering of the original dataset by removing any non-arthropod record (ex. Nematodes) and removed any arthropod that was not present in at least 1% of the remaining records. This final .csv file ([filtered_dataset.csv](https://github.com/devonorourke/nhguano/data/filtered_dataset.csv)) consists of the per-sample, per-ASV read abundances with all associated metadata and taxonomic information. That file was used to create a few of the summary plots presented in this manuscript; the remaining unique ASVs in that file were then used as input to create our final sample-filtered, ASV-filtered `.qza` object with which diversity tests were conducted.
 
 ```
-seqkit grep raw_repSeqs.fasta --pattern-file vsearch_missingFaminfo_asvs.txt -w 0 > vsearch_missingFaminfo.fasta
+echo "featureid" > filteredASVs.txt
+cut -f 3 -d ',' filtered_dataset.csv | sed 's/"//g' | sort -u >> filteredASVs.txt
+
+## drop any ASVs no longer in our filtered taxonomy set
+qiime feature-table filter-features --i-table sampleOnly_nobatASV_table.qza \
+  --m-metadata-file filteredASVs.txt --o-filtered-table tmpfilt5_table.qza
+
+## Drop any samples that no long have any ASVs
+qiime feature-table filter-features --i-table tmpfilt5_table.qza \
+  --p-min-samples 1 --o-filtered-table tmpfilt6_table.qza
+
+## Drop any ASVs that no long have any samples  
+qiime feature-table filter-samples --i-table tmpfilt6_table.qza \
+  --p-min-features 1 --o-filtered-table sampleOnly_arthOnly_table.qza
 ```
-- ran standalone vsearch to generate the %id values
-```
-READS=/mnt/lustre/macmaneslab/devon/guano/paper3/qiime/select_libs/reads/vsearch_missingFaminfo.fasta
-REFS=/mnt/lustre/macmaneslab/devon/guano/BOLDdb/bigDB/bigCOI.derep.fasta.gz
-vsearch --usearch_global $READS --db $REFS \
---id 0.8 --query_cov 0.89 --strand both --maxaccepts 100 --threads 24 --blast6out vsearch_missingFam_vsearchOut.tsv
 
-cat vsearch_missingFam_vsearchOut.tsv | cut -f 1,2,3,4,7,8 | gzip > vsearch_missingFam_vsearchOut.tsv.gz
-```
-
-Can sort the output to keep:
-1. Only values with %qcov > 0.89
-2. Only the top hit (regardless if there is a tie)
-
-AACATTATATTTTATTTTTGGAATTTGAGCAGGTATAGTAGGAACTTCTTTAAGATTATTAATTCGAGCAGAATTAGGAAATCCTGGATCTTTAATTGGTGATGATCAAATTTATAATACTATTGTAACAGCCCATGCTTTTATTATAATTTTTTTTATAGTTATACCTATTATAATTGGG
-
-
-TATTCTTTATTTTTTATTTGCCATCTGAGCAGGAATAATTGGATCATCCATAAGTATAATTATTCGACTAGAATTAGGATCATGTAATTCTTTAATTAATAATGATATAATTTATAATATTCTAGTAACAAGACACGGTTTTATTATAATTTTTTTTATAATTATACCTATTATAATCGGG
+The [sampleOnly_arthOnly_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_arthOnly_table.qza) file was used as input in the next step of our analysis, as described in the [diversity_analyses.md](https://github.com/devonorourke/nhguano/docs/diversity_analyses.md) document.
