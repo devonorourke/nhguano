@@ -273,7 +273,7 @@ Collectively these analyses point to random and infrequent instances where some 
 
 
 # Mock community samples suggest there is some degree of cross-talk, but it is extremely low
-We included a positive control in each sequencing run. These biological mock samples consisted of about 20 unique sequence variants spanning 10 distinct arthropod Orders as described in Michelle Juisnio's [paper](https://doi.org/10.1111/1755-0998.12951). We were interested in using these mock samples to evaluate two different contamination features:
+We included a positive control in each sequencing run. These biological mock samples consisted of about 20 unique sequence variants spanning 10 distinct arthropod Orders as described in Michelle Jusino's [paper](https://doi.org/10.1111/1755-0998.12951). We were interested in using these mock samples to evaluate two different contamination features:
 1. Reagent contamination. We do not expect the same contaminants identified in the Decontam workflow (see above) to be present in the mock samples because these mock samples were not extracted in conjunction with negative controls or true samples (the mock samples consist of equimolar pools of plasmids containing the individual sequence variants).  In addition, mock samples were amplified using similar primer constructs as the guano samples, except these reactions took place using batches of reagents that were separate from those used in the true samples.  
 2. Cross talk. We _would_ expect some unexpected sequence variants to be present in the mock samples because of the sequencing process itself. These would typically be low abundance reads in the mock sample, though the particular unexpected ASVs in these mocks would most likely be derived from the most highly abundant ASVs in other samples.  
 
@@ -374,13 +374,13 @@ We used the QIIME 2 VSEARCH plugin to align representative sequences to the host
 ```
 ## classify ASVs with host database
 qiime feature-classifier classify-consensus-vsearch \
-  --i-query "$READS" --o-classification tmp.raw_hostDB_VStax.qza \
+  --i-query "$READS" --o-classification tmp.raw_hostDB_VStax_p97c89.qza \
   --i-reference-reads "$HOSTDBSEQ" --i-reference-taxonomy "$HOSTDBTAX" \
   --p-maxaccepts 1000 --p-perc-identity 0.97 --p-query-cov 0.89 --p-strand both --p-threads 24
 
 ## classify ASVs with broad COI database
 qiime feature-classifier classify-consensus-vsearch \
-  --i-query "$READS" --o-classification tmp.raw_bigDB_VStax.qza
+  --i-query "$READS" --o-classification tmp.raw_bigDB_VStax_c89p97.qza
   --i-reference-reads "$BIGDBSEQ" --i-reference-taxonomy "$BIGDBTAX" \
   --p-maxaccepts 1000 --p-perc-identity 0.97 --p-query-cov 0.89 --p-strand both --p-threads 24 \
 
@@ -401,7 +401,7 @@ Each classification file output was exported into a `.tsv` format:
 qiime tools export --input-path {some.qza} --output-path tmp && mv ./tmp/* . && mv taxonomy.tsv {some.tsv}
 ```
 
-The resulting [tmp.raw_bigDB_NBtax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_bigDB_NBtax.tsv), [tmp.raw_bigDB_VStax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_bigDB_VStax.tsv), [tmp.raw_hostDB_VStax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_hostDB_VStax.tsv) files were then available for analysis in the [decontam R script](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R). The equivalent `.qza` files are available in [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/taxonomy).
+The resulting [tmp.raw_hostDB_VStax_c89p97.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_hostDB_VStax_c89p97.tsv), [tmp.raw_bigDB_VStax_c89p97.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_bigDB_VStax_c89p97.tsv), [tmp.raw_bigDB_NBtax.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax/tmp.raw_bigDB_NBtax.tsv) files were then available for analysis in the [decontam R script](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R). The equivalent `.qza` files are available in [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/taxonomy).
 
 We found substantial evidence that indicated that the only New Hampshire bat sampled in this study is _Myotis lucifugus_. Both the Naive Bayes and VSEARCH classifiers identified a common set of 27 ASVs assigned to several bat species. However, these other bats were present in just 1 or 2 samples generating just 22 reads total among the entire 9 libraries. The little brown bat, on the other hand, was detected in 595 samples, and generated over 1.6 million sequences. No other expected bat species was detected in our study, confirming that these guano samples are likely exclusively from little brown bats. Interestingly, the host DB method assigned just 3 unique ASVs totaling just 10 reads, and perhaps is an indication that the _lucifugus_ reference in that database is not similar enough to the NH species types we have in the broader COI reference. Nevertheless, these analyses confirm that our New Hampshire guano is highly likely to have originated from a single species: _Myotis lucifugus_.
 
@@ -424,8 +424,30 @@ Our final step in a filtering analysis requires making decisions on what ASVs sh
 
 ## Filtering out non-arthropod sequences
 
-- Filtered just the ASVs that were in Naive Bayes with at least Family-name, but missing from VSEARCH in R script.
-- Subset the original full fasta file:
+We had found from previous experience that having a more liberal percent query coverage tends to capture more bat sequences among the representative ASVs. However, in this instance we are filtering _out_ the bat sequences, and typically only expect one or a few bat species among all ASVs. Thus, the particular species of bat isn't necessarily important when filtering out of the dataset. In the case of arthropod sequences we want to be more specific and thus set a higher query coverage parameter to ensure that we assign taxonomic identities with greater specificity to each amplicon. This is we expect more multiple hits with a relatively lower query coverage parameter, and more multiple hits will reduce the taxonomic classification to any one ASV overall. We therefore ran VSEARCH again on the entire dataset, but set the `--p-query-cov` parameter to a higher value of **0.94**:
+
+```
+qiime feature-classifier classify-consensus-vsearch \
+  --i-query "$READS" --o-classification tmp.raw_bigDB_VStax_c94p97.qza
+  --i-reference-reads "$BIGDBSEQ" --i-reference-taxonomy "$BIGDBTAX" \
+  --p-maxaccepts 1000 --p-perc-identity 0.97 --p-query-cov 0.94 --p-strand both --p-threads 24 \
+```
+
+We then exported the taxonomy results captured in the [tmp.raw_bigDB_VStax_c94p97.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/taxonomy/tmp.raw_bigDB_VStax_c94p97.qza) file and imported the matching [tmp.raw_bigDB_VStax_c94p97.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax) file into a separate [taxonomy comparisons R script](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/classifier_comparisons.R). We found that the Naive Bayes and VSEARCH classifiers tended to classify a particular ASV with the same taxonomic information for most ASVs overall. However, we found that while the same taxonomic name was assigned to nearly all ASVs from the Kingdom through Order levels, the classifiers began to assign different values at Family through Species levels. Notably, this could be for two distinct reasons: the classifiers assigned _different_ names to the same ASV, or, one classifier assigned no information to that level while the other did.
+
+![imagehere:taxcomp_matchStatus](https://github.com/devonorourke/nhguano/figures/taxcomp_matchStatus.png)
+
+To address whether these data were being classified as different taxa or if the Naive Bayes classifier was tending to assign a value to a particular ASV where VSEARCH was not, we calculated the number of times the classifiers were in agreement for an ASV, disagreed while both having information, or disagreed because one classifier contained information while the other did not.
+
+![imagehere:taxcomp_missingStatus](https://github.com/devonorourke/nhguano/figures/taxcomp_missingStatus.png)
+
+It's clear that the Naive Bayes classifier and VSEARCH tend to agree more than they disagree, and that when these disagreements arise, it tends to be because VSEARCH is not assigning any information at a particular level (especially at Kingdom through Order levels). This is likely partly due to the fact that the QIIME implementation of VSEARCH applies a least common ancestor (LCA) process while the Naive Bayes version does not. For the sake of our study, we took the more conservative approach and retained only the VSEARCH results. More testing is needed with the Naive Bayes classifier to determine it's performance characteristics among COI datasets, but it appears quite promising in that it can frequently assign at least _some_ information to data that would otherwise be Undefined by the alignment-based approaches like VSEARCH. This may be valuable especially to those working with COI datasets where more diverse Class or Phyla taxa are expected (whereas with New England bats all we expect are arthropods, and principally just spiders and insects).
+
+
+
+
+
+
 ```
 seqkit grep raw_repSeqs.fasta --pattern-file vsearch_missingFaminfo_asvs.txt -w 0 > vsearch_missingFaminfo.fasta
 ```

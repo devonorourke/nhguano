@@ -24,7 +24,7 @@ metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
 metadata <- as.data.frame(metadata)
 
 ## import taxonomy
-taxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_NBtax.tsv", delim="\t")
+taxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax_c89p97.tsv", delim="\t")
 taxonomy <- taxonomy %>% separate(., 
          col = Taxon, 
          sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
@@ -788,7 +788,7 @@ metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
 metadata <- as.data.frame(metadata)
 
 ## import taxonomy again
-taxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_NBtax.tsv", delim="\t")
+taxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax_c89p97.tsv", delim="\t")
 taxonomy <- taxonomy %>% separate(., 
                                   col = Taxon, 
                                   sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
@@ -951,7 +951,6 @@ write.table(batASVlist, file="~/Repos/nhguano/data/host/batASVs.txt", quote=FALS
 ## 2. Are arthropod, but have limited taxonomic information (ex. just assigned to Phylum, no Class/Order/Family name, etc.)
 
 ## Note that we used two different classifiers: Naive Bayes and VSEARCH
-## Opted for the approach defined in `classifier_comparisons.R` script..
 ## ..see: https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/classifier_comparisons.R
 ##############################################################################
 
@@ -962,56 +961,6 @@ write.table(batASVlist, file="~/Repos/nhguano/data/host/batASVs.txt", quote=FALS
 ## generate plot showing abundance/prevalence by ASV family group (as points in dplyr summary)..
 ## but color by their Phylum as arthropod or not or NA
 
-## import metadata again
-metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
-metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
-metadata <- as.data.frame(metadata)
-
-## import VSEARCH taxonomy
-vstaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax.tsv", delim="\t")
-vstaxa <- vstaxa %>% separate(., col = Taxon, 
-                              sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
-vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub(".__", "", y)))
-vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("^$|^ $", NA, y)))
-vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
-vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Unassigned", NA, y)))
-colnames(vstaxa)[1] <- "ASVid"
-
-## import Naive Bayes taxonomy
-nbtaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_nbtax.tsv", delim="\t")
-nbtaxa <- nbtaxa %>% separate(., col = Taxon, 
-                              sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
-nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub(".__", "", y)))
-nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("^$|^ $", NA, y)))
-nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
-nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Unassigned", NA, y)))
-colnames(nbtaxa)[1] <- "ASVid"
-
-## import ASV-filtered, no mock/ncontrol data this time
-filtqzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/sampleOnly_nobatASV_table.qza"
-features <- read_qza(filtqzapath)
-mat.tmp <- features$data
-rm(features)
-df.tmp <- as.data.frame(mat.tmp)
-rm(mat.tmp)
-df.tmp$OTUid <- rownames(df.tmp)
-rownames(df.tmp) <- NULL
-flong_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
-rm(df.tmp)
-colnames(flong_df) <- c("ASVid", "SampleID", "Reads")
-flong_df <- merge(flong_df, metadata, all.x = TRUE)
-tmp2 <- read_csv(file='https://github.com/devonorourke/nhguano/raw/master/data/tax/asvkey_allASVs.csv')
-flong_df <- merge(flong_df, tmp2)
-rm(metadata)
-
-## merge separate dataasets for each taxonomy file:
-vs_long <- merge(flong_df, vstaxa)
-nb_long <- merge(flong_df, nbtaxa, all.x=TRUE)
-rm(flong_df)
-
-## How many ASVs contain at least Order/Family/Genus information?
-vs_asvsumry <- vs_long %>% group_by(ASVid, ASValias, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
-nb_asvsumry <- nb_long %>% group_by(ASVid, ASValias, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
 
 ## anything not arthropod in there?
 nb_notarttax <- nb_long %>% filter(Phylum != 'Arthropoda')

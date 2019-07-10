@@ -1,4 +1,6 @@
 library(tidyverse)
+library(reshape2)
+library(qiime2R)
 library(formattable)
 
 ################################################################################
@@ -11,9 +13,11 @@ library(formattable)
 #2. How often do the two classifiers assign some information or not (per ASV, per taxon level)
 ################################################################################
 
-## how often do the two bigDB classifiers match for the same taxon?
+## import ASValias values used in inital plots (keeping consistent with earlier plots in decontam work)
+asvkey <- read_csv(file="~/Repos/nhguano/data/tax/asvkey_allASVs.csv")
+
 ## import VSEARCH taxonomy
-vstaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax.tsv", delim="\t")
+vstaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax_c94p97.tsv", delim="\t")
 vstaxa <- vstaxa %>% separate(., col = Taxon, 
                               sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
 vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub(".__", "", y)))
@@ -21,6 +25,7 @@ vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("^$|^ $", NA, y)))
 vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
 vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Unassigned", NA, y)))
 colnames(vstaxa)[1] <- "ASVid"
+vstaxa <- merge(vstaxa, asvkey)
 
 ## import Naive Bayes taxonomy
 nbtaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_nbtax.tsv", delim="\t")
@@ -31,7 +36,9 @@ nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("^$|^ $", NA, y)))
 nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
 nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Unassigned", NA, y)))
 colnames(nbtaxa)[1] <- "ASVid"
+nbtaxa <- merge(nbtaxa, asvkey)
 
+rm(asvkey)
 ## common and different values per level:
 matchfunction <- function(TaxonLevel){
   vstmp <- vstaxa %>% select(ASVid, TaxonLevel) %>% filter(complete.cases(.)) %>% unite(., "vsinput", c("ASVid", TaxonLevel)) %>% pull(vsinput)
@@ -75,33 +82,102 @@ formattable(EmptyTable,
 
 rm(CompTable, EmptyTable, tmpk)
 
+
 ################################################################################
-## For all the instances in which Naive Bayes assigns a name where VSEARCH doesn't, what was the % identity for that VSEARCH alignment?
-## In other words, how frequently was VSEARCH really close to making a call but was discarded because it was below the % identity threshold?
+## Classifier specifics: among our most prevalent ASVs, which are assigned names and which aren't?
 ################################################################################
 
-## subset just those instnaces where Nbayes makes a determination and VSEARCH does not
-## focusing on only those instances where Naive Bayes had at least Family-name assigned (don't care if it only assigned to Phylum, or Class, or Order)
-nbtmp <- nbtaxa %>% filter(!is.na(Family)) %>% select(ASVid) %>% pull()
-vstmp <- vstaxa %>% filter(is.na(Family)) %>% select(ASVid) %>% pull()
-asvqueries <- data.frame(intersect(vstmp, nbtmp))
-colnames(asvqueries) <- "featureid"
-write.table(asvqueries, file="~/Repos/nhguano/data/tax/vsearch_missingFaminfo_asvs.txt", 
-            col.names = TRUE, quote = FALSE, row.names = FALSE)
-## using that `asvqueries` object in standalone vsearch to generate the % alignments for each of these ASVs
-## ran this code:
-    ## vsearch --usearch_global $READS --db $REFS --id 0.8 --query_cov 0.89 --strand both \
-    ## --maxaccepts 100 --threads 24 --blast6out vsearch_missingFam_vsearchOut.tsv
-## importing that data output here to filter
+## import metadata again
+metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
+metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
+metadata <- as.data.frame(metadata)
 
-famtaxtest <- read_delim(file='https://github.com/devonorourke/nhguano/raw/master/data/tax/vsearch_missingFam_vsearchOut.tsv.gz', 
-                         delim='\t', col_names = FALSE)
-colnames(famtaxtest) <- c("ASVid", "sid", "pid", "alnlen", "qlo", "qhi")
-famtaxtest$qlen <- abs(famtaxtest$qlo - famtaxtest$qhi) +1  ## checking to see if all qcov are > 0.89
-famtaxtest$qcov <- famtaxtest$alnlen / famtaxtest$qlen      ## yep.
-famtaxtest$sid <- ifelse(is.na(famtaxtest$sid), "missingsomething", famtaxtest$sid) ## some subject ID's not getting reported here...
+## import ASV-filtered, no mock/ncontrol data this time
+filtqzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/sampleOnly_nobatASV_table.qza"
+features <- read_qza(filtqzapath)
+mat.tmp <- features$data
+rm(features)
+df.tmp <- as.data.frame(mat.tmp)
+rm(mat.tmp)
+df.tmp$OTUid <- rownames(df.tmp)
+rownames(df.tmp) <- NULL
+flong_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
+rm(df.tmp)
+colnames(flong_df) <- c("ASVid", "SampleID", "Reads")
+flong_df <- merge(flong_df, metadata, all.x = TRUE)
+rm(metadata)
 
-tmp <- famtaxtest %>% group_by(ASVid) %>% top_n(1, pid) %>% top_n(1, alnlen)
+## merge separate dataasets for each taxonomy file:
+vs_long <- merge(flong_df, vstaxa)
+nb_long <- merge(flong_df, nbtaxa)
+rm(flong_df)
 
+## How many ASVs contain at least Order/Family/Genus information?
+vs_asvsumry <- vs_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+nb_asvsumry <- nb_long %>% group_by(ASVid, ASValias, Kingdom, Phylum, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+## it looks like among the most prevalent ASVs (which are typically also those generating the most reads) both VSEARCH and Naive Bayes agree
+## however there are a few instances in which Naive Bayes provides additional information where VSEARCH does not
+## would be great to work out these differences in a hybrid classifier but need to test first before using on real dataset
+## would need to include a least common ancestor approach for instances where VSEARCH and Naive Bayes disagree at some level
 
-group %>% group_by(Subject) %>% top_n(1, pt)
+## Because there are a few highly prevalent ASVs that Naive Bayes appears to classify that VSEARCH missed, let's gather those
+
+## Gathering ASVs that have less than Family-name information in VSEARCH method 
+vs_miss_df <- vs_asvsumry %>% filter(is.na(Family))
+  ## almost all of these contain ZERO information (Undefined through Class rank)
+  ## those that contain Order information only tend to be lepidopterans, which we have found tend to cluster a lot with this amplicon
+  ## these are often cases in which multipe Families are good hits within 97% identity, so the name gets collapsed to just the Order
+
+## How many Naive Bayes-classified ASVs have some information for those VSEARCH ASVs that lack at least Family-name information?
+nb_vsmiss_df <- as.data.frame(nb_asvsumry %>% filter(ASVid %in% vs_miss_df$ASVid))
+  ## the most prevalent ASVs are frequently just one of a handful of taxa (ex. Phyllophaga hirsuta)..
+  ## ..and previously unclassified taxa (by VSEARCH) now have information 
+
+## How many of these ASVs aren't classified to at least Family-rank within Naive Bayes data too?
+nb_vsmiss_df[3:8] <- lapply(nb_vsmiss_df[3:8], as.character)
+nb_vsmiss_df <- nb_vsmiss_df %>% replace(is.na(.), "Undefined")
+nb_vsmiss_withOrder_df <- nb_vsmiss_df %>% filter(Order != "Undefined")
+  ## lots are. and we're retaining most of the reads; other ASVs we're missing tend to be in fewer samples or with lower total read coutns
+
+rm(nb_vsmiss_df, nb_vsmiss_withOrder_df, vs_miss_df, vstaxa, nbtaxa, vs_long, nb_long)
+################################################################################
+## Hybrid classifications
+## Going to combine both datasets;
+## When VSEARCH value is empty, replace with Naive Bayes
+## When VSEARCH is filled and Naive Bayes is empty, leave filled
+## If VSEARCH is filled and Naive Bayes is filled, apply LCA process to that ASV
+## If VSEARCH is empty and Naive Bayes is empty, leave empty 
+################################################################################
+
+## combine both taxonomies into single string:
+tmp_nb <- nb_asvsumry %>% ungroup() %>% 
+  select(-Reads, -ASValias) %>% 
+  gather(Samples, Kingdom, Phylum, Class, Order, Family, Genus, Species, value = 'nRank') %>% 
+  rename(Level=Samples)
+
+tmp_vs <- vs_asvsumry %>% ungroup() %>% 
+  select(-Reads, -ASValias) %>% 
+  gather(Samples, Kingdom, Phylum, Class, Order, Family, Genus, Species, value = 'vRank') %>% 
+  rename(Level=Samples)
+
+tmp_all <- merge(tmp_nb, tmp_vs, by=c("ASVid", "Level"))
+rm(tmp_nb, tmp_vs)
+
+## generate the comparison Status for each level for each ASV
+tmp_all$Status <- ""
+tmp_all$Status <- ifelse(is.na(tmp_all$nRank) & is.na(tmp_all$vRank), "EMPTY", tmp_all$Status)      ## if both empty, leave empty
+tmp_all$Status <- ifelse(is.na(tmp_all$nRank) & !is.na(tmp_all$vRank), "VSEARCH", tmp_all$Status)   ## if VSEARCH with match and NBAYES empty
+tmp_all$Status <- ifelse(!is.na(tmp_all$nRank) & is.na(tmp_all$vRank), "NBAYES", tmp_all$Status)    ## if NBAYES with Match and VSEARCH empty
+tmp_all$Status <- ifelse(!is.na(tmp_all$nRank) & !is.na(tmp_all$vRank), "LCA", tmp_all$Status)      ## apply LCA to these matches
+
+Status_df <- tmp_all %>% select(ASVid, Level, Status)
+
+## how many of each status at each level?
+Status_df %>% 
+  group_by(Level, Status) %>% 
+  tally() %>% 
+  spread(Level, n) %>% 
+  select(Status, Kingdom, Phylum, Class, Order, Family, Genus, Species)
+  ## LCA for most (because most are common); but many in NBAYES group reflect that this classifier can help recover lost info not in VSEARCH
+
+## 
