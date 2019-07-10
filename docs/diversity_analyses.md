@@ -1,29 +1,70 @@
 
 # Overview
-We initially processed all samples following steps described in the [sequence_processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document, and performed a detailed analysis of potential contamination among negative control and positive control samples as outlined in the [decontam_workflow](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md) file. These results suggest that a very minor amount of contamination exists, though it isn't clear whether this is due to either the DNA extraction or sequencing processes (or a combination of both). Fortunately our analyses suggest that these are extremely rare events, occur randomly with respect to which ASV is detected in a particular well, and occur with such low abundances that any diversity estimate that utilizes abundance information will not likely be biased due to a contamination event. However, it is also true that we would expect unweighted abundance metrics to be more sensitive to these false positive events. Within-sample observed richness is likely to be marginally higher, and between-sample dissimilarities are likely to be lower than a dataset that would otherwise have not generated any contaminants.  We therefore acknowledge that some amount of contamination is possible among samples, but it is likely minor and proceeded without removing any particular ASVs other than the ASVs known to be assigned to the positive control samples (i.e. the biological mock community).
-
-The control-removed ASV table was then filtered so that bat (host) DNA was removed. We used a pair of databases and classified data using an alignment approach in VSEARCH.
-
-
-1c. Removing selected ASVs
-1ci. Are these all M. lucifigus? Create table of putative North American bat when species name is provided. Hoping to make statment that we suspect our analyses  are not influenced by other species.
-1cii. Find any supporting evidence of previous info about emergence counts in those homes?
-
-2ai. Filtering data for taxonomic specificity. Do in QIIME with some sort of feature filter thing. Create new filtered table and repseq file with arthonly data.
-2aii. Create the summarize table at the same time to quickly figure out what a range of sampling depths are going to work best to preserve the most samples. Then run rarefying alpha viz to figure out what level to choose.
-
-2b. Import that table into R and run ??
+We initially processed all samples following steps described in the [sequence_processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document, and performed a detailed analysis of potential contamination among negative control and positive control samples as outlined in the [decontam_workflow](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md) file. The final ASV table had been filtered to remove both bat (host) DNA and non-arthropod sequence variants.
 
 # Determining sampling depth for normalization
-4. Figure out sampling depth with alpha rarefaction viz. Using default 10 iterations, but setting 1000 reads as minimum.
+Because the previous filtering regime did not remove samples with low read abundances (any samples with >= 1 read were retained) we're going to first determine how the sampling depth will effect the number of samples retained, the overall richness of the dataset, and the per-sample richness.
+> `$TABLE` refers to the control and host-filtered [ASV table](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_nobatASV_table.qza)
+> `$NHMETA` refers to the [qiime_NHbat_meta.tsv](https://github.com/devonorourke/nhguano/data/metadata/qiime_NHbat_meta.tsv) metadata file
 
 ```
+## generating summary table
+qiime feature-table summarize \
+--i-table $TABLE --o-visualization sampleOnly.summaryTable.qzv --m-sample-metadata-file $NHMETA
+
+## boostrap estimates of richness per sample across a range of sampling depths
 qiime diversity alpha-rarefaction \
-  --p-metrics observed_otus --p-min-depth 1000 --p-max-depth 10000 --p-iterations 10 \
-  --i-table study.raw_table.qza --o-visualization study.raw.alphaRareViz.qzv
+  --i-table $TABLE --o-visualization sampleOnly.alphaRareViz.qzv --m-metadata-file $NHMETA \
+  --p-metrics observed_otus --p-min-depth 500 --p-max-depth 5000 --p-iterations 10
+```
+
+We used the [sampleOnly.summaryTable.qzv](https://github.com/devonorourke/nhguano/data/qiime_qzv/table_sumry/sampleOnly.summaryTable.qzv) summary visualization to determine how the sampling depth would influence the number of samples that would be retained for different variables like sampling sites and weeks. This table demonstrates the tradeoff we expected: because we pooled hundreds of samples on a single MiSeq run the average read depth per sample is low (per sample sequencing counts median = 541), but there are hundreds of samples with thousands of reads. Because we are not particularly concerned with rare variants or low abundance taxa and instead are more interested in retaining as many samples per group as possible, we sought to find a sampling depth that preserved a balance between retaining as many samples as possible at a point where observed ASV richness began to plateau on the alpha rarefaction curve. The [sampleOnly.alphaRareViz.qzv](https://github.com/devonorourke/nhguano/data/qiime_qzv/alpha_viz/sampleOnly.alphaRareViz.qzv) visualization suggests that a relatively low sampling depth between 1000-2000 reads will retain most of the observed variation among all but a few sites (one site, EPS (Epsom, NH) had far more diversity than other samples); importantly this range of sampling depth will preserve many of our samples. Samples were then rarefied to our selected sampling depth of 1000 reads.
+
+```
+qiime feature-table rarefy \
+  --i-table $TABLE \
+  --p-sampling-depth 1000 \
+  --o-rarefied-table sampleOnly_rfyd_table.qza
+```
+
+The rarefied table ([sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza)) is used next to calculate estimates of diversity.
+
+# Alpha diversity estimates
+
+We explored three estimates of within sample ASV diversity: richness (observed ASVs), Shannon's entropy, and Faith's phylogenetic diversity.
+`$TREE` refers to the rooted tree file ([raw.ASVtree_rooted.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/trees)) created previously in the `decontam workflow` document
+`$TABLE` refers to the rarefied ASV table ([sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza))
+
+```
+qiime diversity alpha-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric faith_pd --o-alpha-diversity alpha.vals_fp.qza
+qiime diversity alpha --i-table "$TABLE" --p-metric observed_otus --o-alpha-diversity alpha.vals_ob.qza
+qiime diversity alpha --i-table "$TABLE" --p-metric shannon --o-alpha-diversity alpha.vals_sh.qza
+```
+
+We then tested for between group significance using a Kruskal-Wallis non parametric test:
+```
+qiime diversity alpha-group-significance --m-metadata-file "$NHMETA" --i-alpha-diversity alpha.vals_fp.qza --o-visualization alpha.sigs_fp.qzv
+qiime diversity alpha-group-significance --m-metadata-file "$NHMETA" --i-alpha-diversity alpha.vals_ob.qza --o-visualization alpha.sigs_ob.qzv
+qiime diversity alpha-group-significance --m-metadata-file "$NHMETA" --i-alpha-diversity alpha.vals_sh.qza --o-visualization alpha.sigs_sh.qzv
+```
+
+All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha); `alpha*.qzv` files are available in [this directory](https://github.com/devonorourke/nhguano/data/qiime_qzv/alpha_groupsig).  
+
+## Beta diversity estimates
+
+We relied on four communitity composition distance metrics:
+- Dice-Sorensen (unweighted abundance, unweighted phylogenetic)  
+- Bray-Curtis (weighted abundance, unweighted phylogenetic)  
+- Unweighted Unifrac (unweighted abundance, weighted phylogenetic)  
+- Weighted Unifrac (weighted abundance, weighted phylogenetic)  
+
+The following code was executed to generate the distance matricies. We then applied a Principal Coordinates Analysis for each distance matrix:  
+```
+
 ```
 
 
+We then
 # consider using abundances and not normalizing
 for alpha diversity, could look at richness here: https://forum.qiime2.org/t/q2-breakaway-community-tutorial/5756
 

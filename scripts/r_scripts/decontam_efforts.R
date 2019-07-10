@@ -387,6 +387,7 @@ seq.df.pa <- data.frame(pa.pos=taxa_sums(psf.pa.pos), pa.neg=taxa_sums(psf.pa.ne
   mutate(ASVid=row.names(.)) %>% mutate(Batch="SeqBatch")
 df.pa <- rbind(dna.df.pa, seq.df.pa)
 ASVkey <- long_df %>% group_by(ASVid, ASValias) %>% summarise(Samples=n_distinct(SampleID)) %>% select(-Samples)
+write.csv(ASVkey, file="~/Repos/nhguano/data/tax/asvkey_allASVs.csv", quote = FALSE, row.names = FALSE)
 df.pa <- merge(df.pa, ASVkey)
 rm(ASVkey, dna.df.pa, seq.df.pa)
 
@@ -813,6 +814,7 @@ long_df <- merge(long_df, metadata) %>% merge(., taxonomy)
 tmp1 <- long_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrange(-nReads) %>% mutate(ASValias=paste0("ASV-", row.names(.))) %>% select(-nReads)
 long_df <- merge(long_df, tmp1)
 
+
 ## subset mock data 
 mock <- long_df %>% filter(SampleType=="mock")
 mock$SampleID <- as.character(mock$SampleID)
@@ -948,7 +950,9 @@ write.table(batASVlist, file="~/Repos/nhguano/data/host/batASVs.txt", quote=FALS
 ## 1. Non arthropod
 ## 2. Are arthropod, but have limited taxonomic information (ex. just assigned to Phylum, no Class/Order/Family name, etc.)
 
-## Assessing how many ASVs/reads/samples are droped if we limit to Family-named taxa only
+## Note that we used two different classifiers: Naive Bayes and VSEARCH
+## Opted for the approach defined in `classifier_comparisons.R` script..
+## ..see: https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/classifier_comparisons.R
 ##############################################################################
 
 ## If filtering by requiring family name, what fraction of reads/ASVs are discarded? 
@@ -963,19 +967,28 @@ metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
 metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
 metadata <- as.data.frame(metadata)
 
-## import taxonomy, this time using VSEARCH from bigDB
-vstaxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax.tsv", delim="\t")
-vstaxonomy <- vstaxonomy %>% separate(., 
-                                  col = Taxon, 
-                                  sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
-  select(-kingdom_name)
-vstaxonomy <- as.data.frame(apply(vstaxonomy, 2, function(y) gsub(".__", "", y)))
-vstaxonomy <- as.data.frame(apply(vstaxonomy, 2, function(y) gsub("^$|^ $", NA, y)))
-vstaxonomy <- as.data.frame(apply(vstaxonomy, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
-colnames(vstaxonomy)[1] <- "ASVid"
+## import VSEARCH taxonomy
+vstaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax.tsv", delim="\t")
+vstaxa <- vstaxa %>% separate(., col = Taxon, 
+                              sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
+vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub(".__", "", y)))
+vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("^$|^ $", NA, y)))
+vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
+vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Unassigned", NA, y)))
+colnames(vstaxa)[1] <- "ASVid"
+
+## import Naive Bayes taxonomy
+nbtaxa <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_nbtax.tsv", delim="\t")
+nbtaxa <- nbtaxa %>% separate(., col = Taxon, 
+                              sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
+nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub(".__", "", y)))
+nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("^$|^ $", NA, y)))
+nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
+nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Unassigned", NA, y)))
+colnames(nbtaxa)[1] <- "ASVid"
 
 ## import ASV-filtered, no mock/ncontrol data this time
-filtqzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/nocontrol_nomockASV_nobatASVs_table.qza"
+filtqzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/sampleOnly_nobatASV_table.qza"
 features <- read_qza(filtqzapath)
 mat.tmp <- features$data
 rm(features)
@@ -986,11 +999,47 @@ rownames(df.tmp) <- NULL
 flong_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
 rm(df.tmp)
 colnames(flong_df) <- c("ASVid", "SampleID", "Reads")
-flong_df <- merge(flong_df, metadata) %>% merge(., vstaxonomy)
-tmp1 <- flong_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrange(-nReads) %>% mutate(ASValias=paste0("ASV-", row.names(.))) %>% select(-nReads)
-flong_df <- merge(flong_df, tmp1)
-rm(vstaxonomy, metadata)
+flong_df <- merge(flong_df, metadata, all.x = TRUE)
+tmp2 <- read_csv(file='https://github.com/devonorourke/nhguano/raw/master/data/tax/asvkey_allASVs.csv')
+flong_df <- merge(flong_df, tmp2)
+rm(metadata)
+
+## merge separate dataasets for each taxonomy file:
+vs_long <- merge(flong_df, vstaxa)
+nb_long <- merge(flong_df, nbtaxa, all.x=TRUE)
+rm(flong_df)
 
 ## How many ASVs contain at least Order/Family/Genus information?
-asvsumry <- flong_df %>% group_by(ASVid, class_name, order_name, family_name, genus_name) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+vs_asvsumry <- vs_long %>% group_by(ASVid, ASValias, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+nb_asvsumry <- nb_long %>% group_by(ASVid, ASValias, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
 
+## anything not arthropod in there?
+nb_notarttax <- nb_long %>% filter(Phylum != 'Arthropoda')
+  ## yep; a bunch of ASVs for Nematodes and Rotifers, plus a few squirrels, slugs, and other junk we don't want
+
+## how many of those reads are contributing to the entire project?
+(sum(nb_notarttax$Reads) / sum(nb_long$Reads)) * 100
+  ## just 0.24% of the overall read abundance. good!
+
+## filtering for arthropod only; requring at least Family-name information retained
+## first, what DOES NOT have that Family info, but is an Arthropod?
+nb_arthonly_noFam <- nb_long %>% filter(Phylum=="Arthropoda" & is.na(Family))
+nb_arthonly_hasFam <- nb_long %>% filter(Phylum=="Arthropoda" & !is.na(Family))
+
+## how many ASVs and how many reads to we toss by requiring at least Family-level info?
+nb_noFam_sumry <- nb_arthonly_noFam %>% summarise(Reads=sum(Reads), ASVs=n_distinct(ASVid))
+nb_hasFam_sumry <-nb_arthonly_hasFam %>% summarise(Reads=sum(Reads), ASVs=n_distinct(ASVid))
+rbind(dropData=nb_noFam_sumry, keepData=nb_hasFam_sumry)
+  ## dropping about 25% of all reads and about 1/3 of all ASVs. yikes.
+  
+
+## how many ASVs and how many reads to we toss by requiring at least Order-level info?
+nb_noOrd_sumry <- nb_long %>% filter(Phylum=="Arthropoda" & is.na(Order)) %>% summarise(Reads=sum(Reads), ASVs=n_distinct(ASVid))
+nb_hasOrd_sumry <-nb_long %>% filter(Phylum=="Arthropoda" & !is.na(Order)) %>% summarise(Reads=sum(Reads), ASVs=n_distinct(ASVid))
+rbind(dropData=nb_noOrd_sumry, keepData=nb_hasOrd_sumry)
+  ## dropping about 20% of all reads and about 1/8 of all ASVs. more diversity, but not much more data...
+
+
+## How many ASVs contain at least Order/Family/Genus information?
+vs_asvsumry <- vs_long %>% group_by(ASVid, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
+nb_asvsumry <- nb_long %>% group_by(ASVid, Class, Order, Family, Genus, Species) %>% summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))

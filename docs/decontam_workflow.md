@@ -326,37 +326,37 @@ We first remove all control samples from the dataset. The [25 ASVs associated wi
 > `$ALLTABLE` refers to the initial [ASV table](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza) imported in this workflow containing all DADA2-processed samples
 > `$ALLSEQS` refers to the initial [ASV fasta](https://github.com/devonorourke/nhguano/data/qiime_qza/repSeqs/tmp.raw_repSeqs.qza) file associated with the ASV table
 > `$META` refers to the QIIME-formatted metadata file [qiime_allbat_meta.tsv](https://github.com/devonorourke/nhguano/blob/master/data/metadata/qiime_allbat_meta.tsv)
-> `$MOCKASVs` refers to the [25 mock ASV sequences](https://github.com/devonorourke/nhguano/data/fasta/prevalentMockASVs.txt)
+> `$MOCKASV` refers to the [25 mock ASV sequences](https://github.com/devonorourke/nhguano/data/fasta/prevalentMockASVs.txt)
 
 ```
 ## remove all negative and positive control samples from ASV table
 qiime feature-table filter-samples \
-  --i-table all.raw_table.qza --o-filtered-table nocontrol_table.qza \
+  --i-table "$ALLTABLE" --o-filtered-table tmpfilt1_table.qza \
   --m-metadata-file "$META" \
   --p-where "StudyID='oro15' OR StudyID='oro16'"  
 
 ## Remove the ASVs associated with the known mock sequences
-qiime feature-table filter-samples \
-  --i-table nocontrol_table.qza --o-filtered-table nocontrol_nomockASV_table.qza \
-  --m-metadata-file "$MOCKASVs" --p-exclude-ids
+qiime feature-table filter-features \
+  --i-table tmpfilt1_table.qza --o-filtered-table tmpfilt2_table.qza \
+  --m-metadata-file "$MOCKASV" --p-exclude-ids
 
 ## Drop any samples that no long have any ASVs
 qiime feature-table filter-features \
-  --i-table nocontrol_nomockASV_table.qza \
+  --i-table tmpfilt2_table.qza \
   --p-min-samples 1 \
-  --o-filtered-table tmpfiltd-table.qza
+  --o-filtered-table tmpfilt3_table.qza
 
 ## Drop any ASVs that no long have any samples  
 qiime feature-table filter-samples \
-  --i-table tmpfiltd-table.qza \
+  --i-table tmpfilt3_table.qza \
   --p-min-features 1 \
-  --o-filtered-table nocontrol_nomockASV_table.qza
+  --o-filtered-table sampleOnly_table.qza
 
-rm tmpfiltd-table.qza nocontrol_table.qza
+rm tmpfilt*_table.qza
 ```
 
 ## Removing bat (host) sequences
-We next take the [nocontrol_nomockASV_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/nocontrol_nomockASV_table.qza) table and identify all bat host sequences in the samples. We're going to use two separate databases to query this dataset:
+We next take the [sampleOnly_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_table.qza) table and identify all bat host sequences in the samples. We're going to use two separate databases to query this dataset:
 
 1. The first database consists of a selection of host references designed specifically for this project. These sequences contain references for bat species known to inhabit New England and New York. We also included other reference sequences assigned to organisms that our lab had been conducting DNA extractions with at the same time this project was being conducted. Full details describing the database design are available - see [hostCOI_database_design](https://github.com/devonorourke/nhguano/blob/master/docs/hostCOI_database_design.md).
 2. A second database consisting of millions of COI sequences from arthropod and non-arthropod animals, as well as non-animal COI from subjects like fungi and microeukaryotes. The construction of this database is described in the [broadCOI_database_design.md](https://github.com/devonorourke/nhguano/blob/master/docs/broadCOI_database_design.md) file.
@@ -406,15 +406,44 @@ The resulting [tmp.raw_bigDB_NBtax.tsv](https://github.com/devonorourke/nhguano/
 We found substantial evidence that indicated that the only New Hampshire bat sampled in this study is _Myotis lucifugus_. Both the Naive Bayes and VSEARCH classifiers identified a common set of 27 ASVs assigned to several bat species. However, these other bats were present in just 1 or 2 samples generating just 22 reads total among the entire 9 libraries. The little brown bat, on the other hand, was detected in 595 samples, and generated over 1.6 million sequences. No other expected bat species was detected in our study, confirming that these guano samples are likely exclusively from little brown bats. Interestingly, the host DB method assigned just 3 unique ASVs totaling just 10 reads, and perhaps is an indication that the _lucifugus_ reference in that database is not similar enough to the NH species types we have in the broader COI reference. Nevertheless, these analyses confirm that our New Hampshire guano is highly likely to have originated from a single species: _Myotis lucifugus_.
 
 All bat-associated from either database were removed from the `nocontrol_nomockASV_table.qza`:
-> The `$BATASVS` file refers to the [bat-associated list of ASVs](https://github.com/devonorourke/nhguano/data/host/batASVs.txt) generated at the end of the R script
-> `$TABLE` refers to [nocontrol_nomockASV_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/nocontrol_nomockASV_table.qza)
+> The `$BATASV` file refers to the [bat-associated list of ASVs](https://github.com/devonorourke/nhguano/data/host/batASVs.txt) generated at the end of the R script
+> `$TABLE` refers to [sampleOnly_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_table.qza)
+> `$NHMETA` refers to the [qiime_NHbat_meta.tsv](https://github.com/devonorourke/nhguano/data/metadata/qiime_NHbat_meta.tsv) metadata file
 
 ```
+qiime feature-table filter-features \
+  --i-table $TABLE --o-filtered-table tmpfilt4_table.qza \
+  --m-metadata-file "$BATASV" --p-exclude-ids
+
 qiime feature-table filter-samples \
-  --i-table $TABLE --o-filtered-table nocontrol_nomockASV_nobatASVs_table.qza \
-  --m-metadata-file "$BATASVS" --p-exclude-ids
+  --i-table tmpfilt4_table.qza --o-filtered-table sampleOnly_nobatASV_table.qza \
+  --m-metadata-file "$NHMETA"
 ```
 
 Our final step in a filtering analysis requires making decisions on what ASVs should be retained based upon taxonomic information.
 
 ## Filtering out non-arthropod sequences
+
+- Filtered just the ASVs that were in Naive Bayes with at least Family-name, but missing from VSEARCH in R script.
+- Subset the original full fasta file:
+```
+seqkit grep raw_repSeqs.fasta --pattern-file vsearch_missingFaminfo_asvs.txt -w 0 > vsearch_missingFaminfo.fasta
+```
+- ran standalone vsearch to generate the %id values
+```
+READS=/mnt/lustre/macmaneslab/devon/guano/paper3/qiime/select_libs/reads/vsearch_missingFaminfo.fasta
+REFS=/mnt/lustre/macmaneslab/devon/guano/BOLDdb/bigDB/bigCOI.derep.fasta.gz
+vsearch --usearch_global $READS --db $REFS \
+--id 0.8 --query_cov 0.89 --strand both --maxaccepts 100 --threads 24 --blast6out vsearch_missingFam_vsearchOut.tsv
+
+cat vsearch_missingFam_vsearchOut.tsv | cut -f 1,2,3,4,7,8 | gzip > vsearch_missingFam_vsearchOut.tsv.gz
+```
+
+Can sort the output to keep:
+1. Only values with %qcov > 0.89
+2. Only the top hit (regardless if there is a tie)
+
+AACATTATATTTTATTTTTGGAATTTGAGCAGGTATAGTAGGAACTTCTTTAAGATTATTAATTCGAGCAGAATTAGGAAATCCTGGATCTTTAATTGGTGATGATCAAATTTATAATACTATTGTAACAGCCCATGCTTTTATTATAATTTTTTTTATAGTTATACCTATTATAATTGGG
+
+
+TATTCTTTATTTTTTATTTGCCATCTGAGCAGGAATAATTGGATCATCCATAAGTATAATTATTCGACTAGAATTAGGATCATGTAATTCTTTAATTAATAATGATATAATTTATAATATTCTAGTAACAAGACACGGTTTTATTATAATTTTTTTTATAATTATACCTATTATAATCGGG
