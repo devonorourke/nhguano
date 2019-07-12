@@ -41,7 +41,22 @@ qiime diversity alpha --i-table "$TABLE" --p-metric observed_otus --o-alpha-dive
 qiime diversity alpha --i-table "$TABLE" --p-metric shannon --o-alpha-diversity alpha.vals_sh.qza
 ```
 
-All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha). These files were used for signignificance testing and generating plots as described in the [alphadiv.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/alphadiv.R) script.
+--------write sentence mentioning we started looking at all alphas, but per-sample, per-week sampling discontinuous-----------------
+--------the next R script explores how we came to examine just 2016 five sites for best representation-----------------
+All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha). These files input to the [alphadiv.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/alphadiv.R) script to generate the following files:
+- Static plots
+  - Boxplots of alpha diversity estimates for observed ([]()), Shannon's ([]()) and Faith's PD ([]()) measures
+  - Stacked barchart of relative abundances grouped by taxonomic Order for each group (time and site); see ([]())
+- Animations
+  - Boxplots
+  - stacked barchart
+- Statistical summaries
+  - ANOVAs for observed ([]()), Shannon's ([]()) and Faith's PD ([]()) measures
+  - TukeyHSD for observed ([]()), Shannon's ([]()) and Faith's PD ([]()) measures
+
+
+--------follow up mentioning that we have 2016/2015 comparison for few sites (separate R script?)-----------------
+--------follow up mentioning we calculated readth of all samples too...??-----------------
 
 ## Beta diversity estimates
 
@@ -68,6 +83,8 @@ qiime diversity pcoa --i-distance-matrix bc_dist.qza --o-pcoa bc_pcoa.qza
 
 --------write section on where pcoa and distmats are stored in repo-----------------
 The files are here and here...
+
+--------used 2016 select sites/samples to evaluate composition-----------------
 These were used in this betadiv.R script...
 --------write section on where pcoa and distmats are stored in repo-----------------
 

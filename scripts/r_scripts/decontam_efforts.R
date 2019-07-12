@@ -33,12 +33,21 @@ taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub(".__", "", y)))
 taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub("^$|^ $", NA, y)))
 colnames(taxonomy)[1] <- "ASVid"
 
+## create physeq metadata and taxonomy data for analyses:
+row.names(metadata) <- metadata$SampleID
+phy_meta <- sample_data(metadata)
+
 ## import ASV table; save as both physeq object (for Decontam) and long-format (for custom plotting later)
 qzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/tmp.raw_table.qza"
 features <- read_qza(qzapath)
 mat.tmp <- features$data
 df.tmp <- as.data.frame(mat.tmp)
 rm(mat.tmp)
+OTU <- otu_table(df.tmp, taxa_are_rows = TRUE) ## import as physeq object 
+## create phyloseq object
+ps <- phyloseq(OTU, phy_meta)
+rm(OTU, phy_meta)
+## create long_df object
 df.tmp$OTUid <- rownames(df.tmp)
 rownames(df.tmp) <- NULL
 long_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
@@ -48,7 +57,7 @@ long_df <- merge(long_df, metadata)
 long_df <- merge(long_df, taxonomy)
 tmp1 <- long_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrange(-nReads) %>% mutate(ASValias=paste0("ASV-", row.names(.))) %>% select(-nReads)
 long_df <- merge(long_df, tmp1)
-rm(tmp1, metadata, taxonomy)
+rm(tmp1, taxonomy, features)
 
 
 ## How rare are these ASVs anyway?
@@ -85,28 +94,14 @@ long_df %>% group_by(SampleType, SampleID) %>% summarise(Reads=sum(Reads)) %>% f
 ########################################################################
 ## plotting read abundances by SampleType
 ########################################################################
-## This ggplot example shows how our contaminant samples generally hove lower abundances
-## But the way it's ordered sort of obscures the image
-  ## We'll make a custom plot of this below
-df <- as.data.frame(sample_data(psf)) # Put sample_data into a ggplot-friendly data.frame
-df$LibrarySize <- sample_sums(psf)
-df <- df[order(df$LibrarySize),]
-df$Index <- seq(nrow(df))
-ggplot() + 
-  geom_point(data=df %>% filter(SampleType == "sample"), aes(x=Index, y=LibrarySize), color="gray50") +
-  geom_point(data=df %>% filter(SampleType == "mock"), aes(x=Index, y=LibrarySize), color="#caa102") +
-  geom_point(data=df %>% filter(SampleType == "ncontrol"), aes(x=Index, y=LibrarySize), color="#512698") +
-  theme_bw() +
-  scale_y_log10()
-rm(df)
 
-## This custom plot will examine both the read abundances and the nASVs
+## This plot will examine both the read abundances and the nASVs
 ## generate the data 
 df_sumry <- long_df %>% group_by(SampleType, SampleID) %>% summarise(ASVs=n_distinct(ASVid), Reads=sum(Reads))
 ## set levels
 df_sumry$SampleType <- factor(df_sumry$SampleType, levels = c("sample", "mock", "ncontrol"))
-## plot; save as 'contam_eval_allSampls_Counts-ASVs_scatterplot'; export at 800x400
 
+## plot; save as 'contam_eval_allSampls_Counts-ASVs_scatterplot'; export at 800x400
 ggplot(data = df_sumry %>% filter(SampleType != "contaminant") %>% filter(Reads >= 500), 
        aes(y=ASVs, x=Reads, color=SampleType, shape=SampleType, label=SampleID)) +
   geom_point(data = df_sumry %>% filter(SampleType == "sample")) +
@@ -154,9 +149,14 @@ rm(df_sumry)
 ## We (below) also can add in batch classifications for things like the sequencing library or DNA plate a sample
 ## See this post about the interpretation of the pscore (it's not a p value): https://github.com/benjjneb/decontam/issues/28
 
+## Filtering phyloseq object to remove any instances where ASV in just single sample
+## function from here: https://github.com/joey711/phyloseq/issues/917
+psf <- filter_taxa(ps, function (x) {sum(x > 0) > 1}, prune=TRUE)
+
 ## Going to test a range of prevalence thresholds first:
 ## Function will create a series of datasets:
 basic_contam.function <- function(threshold, label){
+  #tmp <- isContaminant(psf, method="prevalence", neg="is.neg", threshold=threshold)
   tmp <- isContaminant(psf, method="prevalence", neg="is.neg", threshold=threshold)
   tmp <- tmp %>% mutate(ASVid=row.names(tmp))
   tmp %>% mutate(threshold=label) %>% mutate(batch="basic")
@@ -389,7 +389,7 @@ df.pa <- rbind(dna.df.pa, seq.df.pa)
 ASVkey <- long_df %>% group_by(ASVid, ASValias) %>% summarise(Samples=n_distinct(SampleID)) %>% select(-Samples)
 write.csv(ASVkey, file="~/Repos/nhguano/data/tax/asvkey_allASVs.csv", quote = FALSE, row.names = FALSE)
 df.pa <- merge(df.pa, ASVkey)
-rm(ASVkey, dna.df.pa, seq.df.pa)
+rm(dna.df.pa, seq.df.pa)
 
 ## generate ASV list to use for selected points
   ## ASVs 2,5,7 are TRUE for DNAplate batch, but FALSE for SeqBatch method
@@ -618,7 +618,7 @@ ggplot(data = sub_sumry %>% filter(Threshold=="0.2" & SampleType != "contaminant
   labs(x="sequence counts per ASV", "Samples per ASV", 
        subtitle = "Threshold = 0.1\nData transformed by subtracting 50 reads per-sample per-ASV")
 
-rm(all.prev, ASVfreq, ASVkey, batch_contam.table, contam_plot_sumry_sub,
+rm(all.prev, ASVfreq, batch_contam.table, contam_plot_sumry_sub,
    df, dna_contamASVtaxa, psfs, psfsm, seq_contamASVtaxa, sub_02_contam.prev, sub_contam.prev,
    sub_sumry, sub_table, sumry_sub_01, sumry_sub_02, tmp, tmp01, tmp1)
 
@@ -1140,4 +1140,4 @@ tmp1 <- merge(flong_df, filt_taxa_tokeep)
 tmp2 <- merge(tmp1, metadata) %>% select(-SampleType, -Date, -is.neg)
 
 ## write this file for subsequent plotting efforts in future scripts:
-write.csv(tmp2, file="~/Repos/nhguano/data/filtered_dataset.csv")
+write.csv(tmp2, file="~/Repos/nhguano/data/filtered_dataset.csv", row.names = FALSE)
