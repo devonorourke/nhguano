@@ -886,8 +886,8 @@ tax_filter_function <- function(urlpath, Classifier){
   tmp2
 }
 
-vs_host_db_path <- "https://github.com/devonorourke/nhguano/raw/master/data/tax/tmp.raw_hostDB_VStax.tsv"
-vs_big_db_path <- "https://github.com/devonorourke/nhguano/raw/master/data/tax/tmp.raw_bigDB_VStax.tsv"
+vs_host_db_path <- "https://github.com/devonorourke/nhguano/raw/master/data/tax/tmp.raw_hostDB_VStax_c89p97.tsv"
+vs_big_db_path <- "https://github.com/devonorourke/nhguano/raw/master/data/tax/tmp.raw_bigDB_VStax_c89p97.tsv"
 nb_big_db_path <- "https://github.com/devonorourke/nhguano/raw/master/data/tax/tmp.raw_bigDB_NBtax.tsv"
 
 vs_hostDB_df <- tax_filter_function(vs_host_db_path, "vs_hostDB")

@@ -12,30 +12,45 @@ library(htmltools)
 library(webshot)
 library(ggrepel)
 
-## import metadata
-metadata <- as.data.frame(read_csv(file="~/Repos/nhguano/data/metadata/nhbat_meta.csv"))
+## import metadata; import the full read dataset as well as the min-read/min-samp-per-Site/Window filtered dataset
+alldat <- as.data.frame(read_csv(file="~/Repos/nhguano/data/filtered_dataset_wWindows.csv"))
+filtdat <- as.data.frame(read_csv(file="~/Repos/nhguano/data/filtered_dataset_wWindows_min1000Reads_min2SamplesperSiteWindow.csv"))
 
 ################################################################################
 ## part 1 - summary table of collections at each site
 ################################################################################
 
 ## summarise number of samples collected at each site
-collection_sumry <- as.data.frame(metadata %>% 
+collection_sumry_alldat <- as.data.frame(alldat %>% 
   group_by(Site, StudyID, SiteLat, SiteLong) %>% 
-  summarise(Samples=n_distinct(SampleID), Weeks=n_distinct(WOY)) %>% 
+  summarise(SamplesCollected=n_distinct(SampleID), SamplingWindowsSurveyed=n_distinct(Window)) %>% 
   arrange(Site, StudyID)) %>% 
   mutate(Year=ifelse(StudyID=="oro15", "2015", "2016"))
 
+collection_sumry_filtdat <- as.data.frame(filtdat %>% 
+                                           group_by(Site, StudyID, SiteLat, SiteLong) %>% 
+                                           summarise(SamplesAnalyzed=n_distinct(SampleID), SamplingWindowsAnalyzed=n_distinct(Window)) %>% 
+                                           arrange(Site, StudyID)) %>% 
+  mutate(Year=ifelse(StudyID=="oro15", "2015", "2016")) %>% 
+  select(Site, StudyID, SamplesAnalyzed, SamplingWindowsAnalyzed)
+
+## merge data together
+collection_sumry <- merge(collection_sumry_alldat, collection_sumry_filtdat, by=c('Site', 'StudyID'), all.x = TRUE)
+## fill missing weeks that were not longer in filtered sample (but were in the original unfiltered dataset)
+collection_sumry[is.na(collection_sumry)] <- 0
+
 ## formattable object to save
 csumtable <- formattable(collection_sumry %>% 
-              select(Site, Year, Weeks, Samples),
-            list(Samples = color_tile("white", "orange"),
-                 Weeks = color_tile("white", "dodgerblue2")))
+              select(Site, Year, SamplesCollected, SamplesAnalyzed, SamplingWindowsSurveyed, SamplingWindowsAnalyzed),
+            list(SamplesCollected = color_tile("white", "darkorange"),
+                 SamplesAnalyzed = color_tile("white", "lightgoldenrod2"),
+                 SamplingWindowsSurveyed = color_tile("white", "dodgerblue2"),
+                 SamplingWindowsAnalyzed = color_tile("white", "lightblue2")))
 
 ## export formattable object because table is too long for basic R export
 ## save table as 'alldata_collectionSummary'; 
   ## modify the "width = 30%" value if you want to stretch/shrink the spacing between columns
-export_formattable <- function(f, file, width = "30%", height = NULL,
+export_formattable <- function(f, file, width = "75%", height = NULL,
                                background = "white", delay = 0.2)
 {
   w <- as.htmlwidget(f, width = width, height = height)
@@ -49,7 +64,7 @@ export_formattable <- function(f, file, width = "30%", height = NULL,
 
 ## export here; save as 'alldata_collectionSummary'
 setwd("~/Repos/nhguano/figures/")
-export_formattable(csumtable,"alldata_collectionSummary.png")
+export_formattable(csumtable,"collectionSummary.png")
 
 class(csumtable)
 
@@ -84,15 +99,17 @@ ggmap(nhmap_bw) +  ## switch to "nhmap_bw" to generate black/white plot
              aes(x=SiteLong, y=SiteLat, size=Samples, shape=Year, color=Year)) +
   geom_point(data = collection_sumry %>% filter(Year=="2015"), 
              aes(x=SiteLong, y=SiteLat, size=Samples, shape=Year, color=Year)) +
-  scale_color_manual(values=c("#6f7c00", "#7a5901")) +
+  scale_color_manual(values=c("#f1a340", "#998ec3")) +
   geom_label_repel(data = collection_sumry %>% filter(Site %in% keepstudy1_sites & Year == "2016"), 
-                   aes(x=SiteLong, y=SiteLat, label=Site), color="gray25", nudge_x = .15, nudge_y = -.05) +
-#                   aes(x=SiteLong, y=SiteLat, label=Site), color="gray25", nudge_x = .15, nudge_y = -.05, fill="#fbeeac") +
+#                   aes(x=SiteLong, y=SiteLat, label=Site), color="gray25", nudge_x = .15, nudge_y = -.05) +
+                   aes(x=SiteLong, y=SiteLat, label=Site), color="gray25", nudge_x = .15, nudge_y = -.05, fill="#fbeeac") +
   geom_label_repel(data = collection_sumry %>% filter(!Site %in% keepstudy1_sites & Year == "2016" & SiteLong > -72), 
                    aes(x=SiteLong, y=SiteLat, label=Site), color="gray25", nudge_x = -.15, nudge_y = .05, label.size = 0.15) +
   geom_label_repel(data = collection_sumry %>% filter(!Site %in% keepstudy1_sites & Year == "2016" & SiteLong < -72),
                  aes(x=SiteLong, y=SiteLat, label=Site), color="gray25", nudge_x = .1, nudge_y = .0, label.size = 0.15) +
   geom_label_repel(data = collection_sumry %>% filter(Site %in% othermap_sites),
                    aes(x=SiteLong, y=SiteLat, label=Site), color="gray25", nudge_x = .0, nudge_y = .1, label.size = 0.15) +
-  theme_bw(base_size = 16)
-  
+  theme_bw(base_size = 16) +
+  labs(x="", y="") +
+  guides(color = guide_legend(override.aes = list(size = 6)))
+   

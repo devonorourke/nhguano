@@ -1,7 +1,7 @@
-              Df Sum Sq Mean Sq F value   Pr(>F)    
-Site           8  14756  1844.5   7.629 5.14e-10 ***
-Window        21  33584  1599.2   6.614  < 2e-16 ***
-Site:Window   95  79362   835.4   3.455  < 2e-16 ***
-Residuals   1309 316504   241.8                     
+                   Df Sum Sq Mean Sq F value   Pr(>F)    
+aovSite             5  14800  2960.1  13.288 7.48e-12 ***
+aovWindow          19  17750   934.2   4.194 2.47e-08 ***
+aovSite:aovWindow  36  16832   467.6   2.099 0.000379 ***
+Residuals         345  76852   222.8                     
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1

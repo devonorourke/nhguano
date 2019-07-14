@@ -41,32 +41,18 @@ qiime diversity alpha --i-table "$TABLE" --p-metric observed_otus --o-alpha-dive
 qiime diversity alpha --i-table "$TABLE" --p-metric shannon --o-alpha-diversity alpha.vals_sh.qza
 ```
 
---------write sentence mentioning we started looking at all alphas, but per-sample, per-week sampling discontinuous-----------------
---------the next R script explores how we came to examine just 2016 five sites for best representation-----------------
-All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha). These files input to the [alphadiv.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/alphadiv.R) script to generate the following files:
-- Static plots
-  - Boxplots of alpha diversity estimates for observed ([]()), Shannon's ([]()) and Faith's PD ([]()) measures
-  - Stacked barchart of relative abundances grouped by taxonomic Order for each group (time and site); see ([]())
-- Animations
-  - Boxplots
-  - stacked barchart
-- Statistical summaries
-  - ANOVAs for observed ([]()), Shannon's ([]()) and Faith's PD ([]()) measures
-  - TukeyHSD for observed ([]()), Shannon's ([]()) and Faith's PD ([]()) measures
+All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha). We partitioned our analyses to focus on particular 2016 sites that contained the greatest proportion of samples across that years sampling dates (April to October). These `.qza` files input to the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/alphadiv.R) script produce the tables and figures presented in this manuscript.
 
-
---------follow up mentioning that we have 2016/2015 comparison for few sites (separate R script?)-----------------
---------follow up mentioning we calculated readth of all samples too...??-----------------
 
 ## Beta diversity estimates
 
-We relied on four communitity composition distance metrics:
+We compared community composition among two sets of samples: select 2016 samples and particular sites repeatedly sampled in 2015 and 2016. We assessed differences in ASV composition using four distance metrics:
 - Dice-Sorensen (unweighted abundance, unweighted phylogenetic)  
 - Bray-Curtis (weighted abundance, unweighted phylogenetic)  
 - Unweighted Unifrac (unweighted abundance, weighted phylogenetic)  
 - Weighted Unifrac (weighted abundance, weighted phylogenetic)  
 
-The following code was executed to generate the distance matrices. We then applied a Principal Coordinates Analysis for each distance matrix:  
+The following code was executed to generate the distance matrices. We then applied a Principal Correspondence Analysis for each distance matrix:  
 ```
 ## distance estimates
 qiime diversity beta-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric unweighted_unifrac --o-distance-matrix uu_dist.qza
@@ -81,12 +67,19 @@ qiime diversity pcoa --i-distance-matrix ds_dist.qza --o-pcoa ds_pcoa.qza
 qiime diversity pcoa --i-distance-matrix bc_dist.qza --o-pcoa bc_pcoa.qza
 ```
 
---------write section on where pcoa and distmats are stored in repo-----------------
-The files are here and here...
+The `$TABLE` used in the distance estimate was first filtered according to each sub study. In the case of the 2016 dataset, we filtered the rarefied [sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza) table to contain only the samples selected in that particular investigation.
+> `$STUDY1META` refers to the select list of samples filtered in the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/alphadiv.R) script that pertain to nine sites from 2016: the [alpha_study1names.txt](https://github.com/devonorourke/nhguano/data/metadata/alpha_study1names.txt) file
+> `$RARETABLE` refers to the original rarefied table: [sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza)
 
---------used 2016 select sites/samples to evaluate composition-----------------
-These were used in this betadiv.R script...
---------write section on where pcoa and distmats are stored in repo-----------------
+```
+qiime feature-table filter-samples \
+--i-table "$RARETABLE" --m-metadata-file "$STUDY1META" --o-filtered-table sampleOnly_select2016_rfyd_table.qza
+```
+
+Thus, the above beta distance and PCoA calculations are representing a generic function: the `$TABLE` would be altered depending upon which study was being analyzed. All distance metrics are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/distmat/select2016), while all PCoA artifacts are [available here](https://github.com/devonorourke/nhguano/data/qiime_qza/pcoa/select2016).  
+
+
+
 
 
 Last section on machine learning??
