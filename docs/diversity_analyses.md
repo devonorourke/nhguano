@@ -12,7 +12,7 @@ Because the previous filtering regime did not remove samples with low read abund
 qiime feature-table summarize \
 --i-table $TABLE --o-visualization sampleOnly.summaryTable.qzv --m-sample-metadata-file $NHMETA
 
-## boostrap estimates of richness per sample across a range of sampling depths
+## bootstrap estimates of richness per sample across a range of sampling depths
 qiime diversity alpha-rarefaction \
   --i-table $TABLE --o-visualization sampleOnly.alphaRareViz.qzv --m-metadata-file $NHMETA \
   --p-metrics observed_otus --p-min-depth 500 --p-max-depth 5000 --p-iterations 15
@@ -41,34 +41,13 @@ qiime diversity alpha --i-table "$TABLE" --p-metric observed_otus --o-alpha-dive
 qiime diversity alpha --i-table "$TABLE" --p-metric shannon --o-alpha-diversity alpha.vals_sh.qza
 ```
 
-All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha). We partitioned our analyses to focus on particular 2016 sites that contained the greatest proportion of samples across that years sampling dates (April to October). These `.qza` files input to the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/alphadiv.R) script produce the tables and figures presented in this manuscript.
+All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha). We partitioned our analyses to focus on particular 2016 sites that contained the greatest proportion of samples across that years sampling dates (April to October). These `.qza` files input to the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script produce the tables and figures presented in this manuscript.
 
 
 ## Beta diversity estimates
 
-We compared community composition among two sets of samples: select 2016 samples and particular sites repeatedly sampled in 2015 and 2016. We assessed differences in ASV composition using four distance metrics:
-- Dice-Sorensen (unweighted abundance, unweighted phylogenetic)  
-- Bray-Curtis (weighted abundance, unweighted phylogenetic)  
-- Unweighted Unifrac (unweighted abundance, weighted phylogenetic)  
-- Weighted Unifrac (weighted abundance, weighted phylogenetic)  
-
-The following code was executed to generate the distance matrices. We then applied a Principal Correspondence Analysis for each distance matrix:  
-```
-## distance estimates
-qiime diversity beta-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric unweighted_unifrac --o-distance-matrix uu_dist.qza
-qiime diversity beta-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric weighted_unifrac --o-distance-matrix wu_dist.qza
-qiime diversity beta --i-table "$TABLE" --p-metric dice --o-distance-matrix ds_dist.qza
-qiime diversity beta --i-table "$TABLE" --p-metric braycurtis --o-distance-matrix bc_dist.qza
-
-## pcoa
-qiime diversity pcoa --i-distance-matrix uu_dist.qza --o-pcoa uu_pcoa.qza
-qiime diversity pcoa --i-distance-matrix wu_dist.qza --o-pcoa wu_pcoa.qza
-qiime diversity pcoa --i-distance-matrix ds_dist.qza --o-pcoa ds_pcoa.qza
-qiime diversity pcoa --i-distance-matrix bc_dist.qza --o-pcoa bc_pcoa.qza
-```
-
-The `$TABLE` used in the distance estimate was first filtered according to each sub study. In the case of the 2016 dataset, we filtered the rarefied [sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza) table to contain only the samples selected in that particular investigation.
-> `$STUDY1META` refers to the select list of samples filtered in the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/alphadiv.R) script that pertain to nine sites from 2016: the [alpha_study1names.txt](https://github.com/devonorourke/nhguano/data/metadata/alpha_study1names.txt) file
+We compared community composition for just a select set of 2016 sites that were the most heavily sampled. This required filtering the original rarefied table to include only those samples that were present in these selected sites (see the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script for details).
+> `$STUDY1META` refers to the select list of samples filtered in the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script that pertain to nine sites from 2016: the [alpha_study1names.txt](https://github.com/devonorourke/nhguano/data/metadata/alpha_study1names.txt) file
 > `$RARETABLE` refers to the original rarefied table: [sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza)
 
 ```
@@ -76,17 +55,49 @@ qiime feature-table filter-samples \
 --i-table "$RARETABLE" --m-metadata-file "$STUDY1META" --o-filtered-table sampleOnly_select2016_rfyd_table.qza
 ```
 
-Thus, the above beta distance and PCoA calculations are representing a generic function: the `$TABLE` would be altered depending upon which study was being analyzed. All distance metrics are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/distmat/select2016), while all PCoA artifacts are [available here](https://github.com/devonorourke/nhguano/data/qiime_qza/pcoa/select2016).  
+We calculated distances among samples four metrics:
+- Dice-Sorensen (unweighted abundance, unweighted phylogenetic)  
+- Bray-Curtis (weighted abundance, unweighted phylogenetic)  
+- Unweighted Unifrac (unweighted abundance, weighted phylogenetic)  
+- Weighted Unifrac (weighted abundance, weighted phylogenetic)  
+
+The following code was executed to generate the distance matrices:
+> `$TABLE` refers to the sample-filtered, rarefied ASV table ([sampleOnly_select2016_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_select2016_rfyd_table.qza))
+
+```
+## distance estimates
+qiime diversity beta-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric unweighted_unifrac --o-distance-matrix s16_dist_uu.qza
+qiime diversity beta-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric weighted_unifrac --o-distance-matrix s16_dist_wu.qza
+qiime diversity beta --i-table "$TABLE" --p-metric dice --o-distance-matrix s16_dist_ds.qza
+qiime diversity beta --i-table "$TABLE" --p-metric braycurtis --o-distance-matrix s16_dist_bc.qza
+```
+
+We then applied a Principal Correspondence Analysis for each distance matrix:  
+```
+## pcoa
+qiime diversity pcoa --i-distance-matrix s16_dist_uu.qza --o-pcoa s16_pcoa_uu.qza.qza
+qiime diversity pcoa --i-distance-matrix s16_dist_wu.qza --o-pcoa s16_pcoa_wu.qza.qza
+qiime diversity pcoa --i-distance-matrix s16_dist_ds.qza --o-pcoa s16_pcoa_ds.qza.qza
+qiime diversity pcoa --i-distance-matrix s16_dist_bc.qza --o-pcoa s16_pcoa_bc.qza.qza
+```
+
+All distance metrics are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/distmat/select2016), while all PCoA artifacts are [available here](https://github.com/devonorourke/nhguano/data/qiime_qza/pcoa/select2016).  
 
 
+## Biplots
+To create the biplots we first created a compositional data table using the rarefied reads as input. We selected just the weighted Unifrac PCoA artifact as input because it the largest fraction of variation of the data in the first two principal component axes than the other three distance metrics. The output of the biplot function was used to generate the figure created in the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script:
 
+```
+## convert select 2016 rarefied table to relative frequency table
+qiime feature-table relative-frequency \
+--i-table sampleOnly_select2016_rfyd_table.qza
+--o-relative-frequency-table sampleOnly_select2016_rfyd_relfreq_table.qza
 
+## run biplot function
+qiime diversity pcoa-biplot \
+--i-pcoa s16_pcoa_wu.qza.qza \
+--i-features sampleOnly_select2016_rfyd_relfreq_table.qza \
+--o-biplot s16_pcoabiplot_wu.qza
+```
 
-Last section on machine learning??
-
-# consider using abundances and not normalizing
-for alpha diversity, could look at richness here: https://forum.qiime2.org/t/q2-breakaway-community-tutorial/5756
-
-For beta diversity, Nick mentioned using a DEseq wald test. See: http://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#variations-to-the-standard-workflow
-There's also a Corncob tutorial here: https://github.com/bryandmartin/corncob/blob/master/vignettes/corncob-intro.Rmd
-Corncob paper here: https://arxiv.org/pdf/1902.02776.pdf
+The [s16_pcoabiplot_wu.qza] artifact is available in [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/biplots).
