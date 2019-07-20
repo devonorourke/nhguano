@@ -461,4 +461,5 @@ qiime feature-table filter-samples --i-table tmpfilt6_table.qza \
   --p-min-features 1 --o-filtered-table sampleOnly_arthOnly_table.qza
 ```
 
+## Next steps in analysis
 The [sampleOnly_arthOnly_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_arthOnly_table.qza) file was used as input in the next step of our analysis, as described in the [diversity_analyses.md](https://github.com/devonorourke/nhguano/docs/diversity_analyses.md) document.
