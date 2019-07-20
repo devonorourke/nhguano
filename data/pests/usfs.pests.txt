@@ -1,0 +1,130 @@
+45	Acleris gloverana western blackheaded budworm	1970
+118	Adelges piceae balsam woolly adelgid	2006
+111	Agrilis anxius bronze birch borer	2000
+183	Agrilis auroguttatus goldspotted oak borer	2017
+168	Agrilus bilineatus twolined chestnut borer	1992
+165	Agrilis bilineatus oak decline - borer	1983
+124	Anacamptodes clivinaria mountain mahogany looper	1971
+77	Anisota rubicunda greenstriped mapleworm	1971
+3	Aphrophora saratogensis Saratoga spittlebug	1978
+182	Alsophila pometaria Fall Cankerworm	2013
+23	Atta texana Texas leaf-cutting ant	1967
+95	Boisea trivittata western boxelder bug	2011
+95	Boisea rubrolineata boxelder bug	2011
+139	Choristoneura conflictana large aspen tortrix	2009
+160	Choristoneura fumiferana spruce budworm	1981
+53	Choristoneura occidentalis western spruce budworm	1986
+7	Choristoneura pinus jack pine budworm	1970
+142	Cimbex americana elm sawfly	1974
+96	Coleophora laricella larch casebearer-western larch	1985
+61	Coleophora laricella larch casebearer-discoloration	1961
+22	Coleotechnites milleri lodgepole pine needleminer	1971
+114	Coloradia pandora pandora moth	2010
+83	Conophthorus coniperda white pine cone beetle	1964
+112	Conophthorus lambertianae sugar pine cone beetle	1968
+132	Corthylus columbianus Columbian timber beetle	1972
+75	Cryptococcus fagisuga beech bark disease - scale	1983
+121	Cryptorhynchus lapathi poplar-and-willow borer	1972
+15	Cylindrocopturus eatoni pine reproduction weevil	1971
+41	Datana tegerrima walnut caterpillar	1982
+155	Dendroctonus adjunctus roundheaded pine beetle	1977
+1	Dendroctonus brevicomis western pine beetle	1982
+49	Dendroctonus frontalis southern pine beetle	2009
+11	Dendroctonus jeffreyi Jeffrey pine beetle	2009
+2	Dendroctonus ponderosae mountain pine beetle	2009
+5	Dendroctonus pseudotsugae Douglas-fir beetle	2014
+127	Dendroctonus rufipennis spruce beetle	1999
+175	Dendroctonus simplex eastern larch beetle	2002
+12	Dendroctonus terrebrans black turpentine beetle	2010
+55	Dendroctonus valens red turpentine beetle	2010
+82	Diapheromera femorata walkingstick	1971
+106	Dioryctria zimmermani Zimmerman pine moth	1971
+99	Diprion similis introduced pine sawfly	1971
+77	Dryocampa rubicunda greenstriped mapleworm	1971
+184	Dryocoetes confusus western balsam bark beetle	2017
+163	Enaphalodes rufulus red oak borer	1980
+81	Ennomos subsignarius elm spanworm	1971
+144	Epinotia meritana white fir needleminer	1974
+134	Eucosma gloriola eastern pineshoot borer	1978
+107	Fiorinia externa fiorinia hemlock scale	1971
+108	Glycobius speciosus sugar maple borer	1971
+170	Gnathotrichus retusus ambrosia beetles-western conifers	2002
+170	Gnathotrichus sulcatus ambrosia beetles-western conifers	2002
+167	Heterocampa guttivitta saddled prominent	1987
+67	Heterocampa manteo variable oakleaf caterpillar	1979
+104	Hylobius pales Pales weevil	1984
+39	Hylobius radicus pine root collar weevil	1975
+176	Hylurgus ligniperda invasive bark beetles	2007
+129	Ips avulsus Ips bark beetles - southern	1983
+141	Ips calligraphus six-spined engraver beetle	1973
+129	Ips calligraphus Ips bark beetles - southern	1983
+129	Ips grandicollus Ips bark beetles - southern	1983
+116	Ips lecontei Arizona fivespined ips	2008
+102	Ips paraconfusus California fivespined ips	1987
+180	Ips perturbatus northern spruce engraver	2011
+122	Ips pini pine engraver	1997
+56	Ips radiatae Monterey pine ips	1970
+126	Laspeyresia anaranjada slash pine seedworm	1971
+95	Leptocoris trivittatus boxelder bug	2011
+162	Lymantria dispar gypsy moth	1989
+119	Malacosoma californicum western tent caterpillar	2008
+9	Malacosoma disstri forest tent caterpillar	1978
+148	Matsucoccus acalyptus piñon needle scale	1974
+10	Matsucoccus resinosae red pine scale	1971
+71	Megacyllene robiniae locust borer	1984
+24	Melanophila californica California flatheaded borer	1970
+109	Melanophila fulvoguttata hemlock borer	1967
+74	Monochamus scutellatus whitespotted sawyer	1975
+179	Neodiprion autumnalis Neodiprion species (no common name)	1971
+179	Neodiprion burkei lodgepole sawfly	1971
+117	Neodiprion edulicolus piñon sawfly	1969
+105	Neodiprion excitans Pine Sawfly	1971
+179	Neodiprion fulviceps Neodiprion species (no common name)	1971
+179	Neodiprion mundus Neodiprion species (no common name)	1971
+179	Neodiprion nanulus contortae western subspecies, red pine sawfly	1971
+14	Neodiprion lecontei redheaded pine sawfly	1978
+17	Neodiprion pratti banksianae jack pine sawfly	1971
+98	Neodiprion sertifer European pine sawfly	1971
+34	Neodiprion taedae linearis loblolly pine sawfly	1970
+31	Neodiprion tsugae hemlock sawfly	1976
+179	Neodiprion ventralis Neodiprion species (no common name)	1971
+66	Neophasia menapia pine butterfly	1971
+91	Nuculaspis californica black pineleaf scale	1986
+125	Odontopus calceatus yellow-poplar weevil	1971
+86	Orgyia pseudotsugata Douglas-fir tussock moth  1981
+120	Orgyia vetusta western tussock moth	1971
+176	Orthotomicus erosus invasive bark beetles	2007
+151	Phaeoura mexicanaria pine looper	1975
+24	Phaenops californica California flatheaded borer	1970
+63	Phyllophaga species white grubs	1971
+72	Phryganidia californica California oakworm	1971
+69	Pikonema alaskensis yellowheaded spruce sawfly	1971
+47	Pissodes sitchensis Sitka spruce weevil	1970
+47	Pissodes strobi Sitka spruce weevil	1970
+21	Pissodes strobi white pine weevil	1995
+64	Prionoxystus robiniae carpenterworm	1970
+8	Pristiphora erichsonii larch sawfly	1971
+56	Pseudips mexicanus Monterey pine ips	1970
+60	Pseudohylesinus granulatus fir root bark beetle	2012
+60	Pseudohylesinus sericeus silver fir beetle	2012
+178	Pseudophillipia quaintancii woolly pine scale	2010
+68	Reticulitermes flavipes eastern subterranean termite	1970
+46	Retinodiplosis inopis gouty pitch midge	1971
+156	Rheumaptera hastata spearmarked black moth	1977
+59	Rhyacionia bouliana European pine tip moth	1970
+70	Rhyacionia frustrana Nantucket pine tip moth	2010
+58	Rhyacionia neomexicana southwestern pine tip moth	1982
+103	Rhyacionia zozana ponderosa pine tip moth	1971
+176	Scolytus schevyrewi invasive bark beetles	2007
+13	Scolytus ventralis fir engraver	1986
+115	Semanotus litigiosus fir tree borer	1968
+121	Sternochetus lapathi poplar-and-willow borer	1972
+153	Symmerista canicosta redhumped oakworm	1975
+185	Synanthedon sequoiae sequoia pitch moth	2017
+97	Thryidopteryx ephemeraeformis bagworm	1971
+176	Tomicus piniperda invasive bark beetles	2007
+92	Tourmeyella liriodendri tuliptree scale	1971
+57	Tourmeyella parvicornis pine tortoise scale	2013
+170	Trypodendron lineatum ambrosia beetles-w.conifers	2002
+179	Zadiprion townsendi Zapdiprion sawfly (no common name)	1971
+65	Zellaria haimbachi pine needle sheathminer	1971
