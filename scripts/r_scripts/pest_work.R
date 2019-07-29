@@ -8,7 +8,7 @@ library(tidyverse)
 read_dat = read_csv("https://github.com/devonorourke/nhguano/raw/master/data/filtered_dataset_wWindows_min1000Reads_min2SamplesperSiteWindow.csv")
 
 ## import pest data frames 
-## file initially dowonloaded from:https://www.aphis.usda.gov/aphis/ourfocus/planthealth/import-information/rppl/rppl-table
+## file initially dowonloaded from: https://www.aphis.usda.gov/aphis/ourfocus/planthealth/import-information/rppl/rppl-table
 ## converted into .csv file
 usda_pest <- read_csv(file = "~/Repos/nhguano/data/pests/usda_aphis_pestlist.csv") %>% 
   filter(Order %in% unique(read_dat$Order)) %>% 
@@ -76,7 +76,11 @@ read_dat %>%
 ## these insects aren't invasive, but are known forest pests
 ################################################################################
 
-## file initially created from USFS site: https://www.fs.fed.us/foresthealth/
+## file initially created from USFS site: 
+  ## https://www.fs.fed.us/foresthealth/publications.shtml 
+  ## --> select "Forest Insect & Disease Leaflets"
+  ## --> select "FIDLs by scientific name" for list
+
 ## converted into .tsv file; import
 usfs_pest <- read_delim(file = "~/Repos/nhguano/data/pests/usfs.pests.tsv", delim="\t",
                         col_names = FALSE) %>% 

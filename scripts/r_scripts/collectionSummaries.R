@@ -72,6 +72,9 @@ class(csumtable)
 ## part 2 - map of collection locations
 ################################################################################
 
+## import metadata
+metadata <- as.data.frame(read_csv(file="https://github.com/devonorourke/nhguano/raw/master/data/metadata/nhbat_meta.csv"))
+
 ## define boundaries?
 latbot <- min(metadata$SiteLat) - .25
 lattop <- max(metadata$SiteLat) + .25

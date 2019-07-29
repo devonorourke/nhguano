@@ -227,18 +227,21 @@ pal12 <- c('#fffe71', '#CE9834', '#9A6600', '#9BCC94', '#405E00', '#993303',
 ## list of ASVs to highlight for discussion?
 # notrun: prevASVs <- c("ASV-1", "ASV-2", "ASV-5", "ASV-7", "ASV-11", "ASV-12", "ASV-8", "ASV-4", "ASV-61", "ASV-20", "ASV-18", "ASV-27")
 
+## how many samples in 95th percentile?
+sampval <- data.frame(value = quantile(ASVsumry$Samples, .95)) %>% pull(value) %>% ceiling()
+
+## what would top 95th percentile for read abundances be?
+readval <- data.frame(value = quantile(ASVsumry$Reads, .95)) %>% pull(value) %>% ceiling()
+
 ## plot scatterplot; save as "ASVsumry_alldata_Reads-and-Samples'; export at 900x450
 ggplot(ASVsumry, aes(x=Samples, y=Reads, color=Order)) + 
-  #geom_label_repel(data = ASVsumry %>% filter(ASValias %in% prevASVs), 
-  #                 aes(x=Samples, y=Reads, color=Order, label=ASValias),
-  #                 size=2.5, nudge_x = 10) +
+  geom_vline(xintercept = sampval, linetype="dotted", color="black") +
+  geom_hline(yintercept = readval, linetype="dotted", color="black") +
   geom_point() +
+  scale_x_continuous(trans = "log2") +
   scale_y_continuous(trans = "log2", labels=comma_format(accuracy = 1)) +
-  #scale_x_continuous(trans="log2", breaks = c(1,4,16,64,256)) +
-  #annotation_logticks(sides = "b") +
   scale_color_manual(values=pal12) +
   theme_bw(base_size = 16) +
   guides(color = guide_legend(override.aes = list(size = 6))) +
-  labs(x="Samples", y="Sequence counts")
-
-
+  labs(x="Samples", y="Sequence counts") +
+  annotation_logticks(sides = "b")

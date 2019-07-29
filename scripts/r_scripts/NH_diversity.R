@@ -1,4 +1,5 @@
 library(tidyverse)
+library(reshape2)
 library(qiime2R)
 library(gganimate)
 library(lubridate)
@@ -190,7 +191,7 @@ ggplot(data=alpha_study1dat %>% filter(Metric=="observed"),
   theme(legend.position = "none", axis.text.x = element_text(angle=45, hjust=1))
 
 ## plot boxplot; save as 'alpha_sh_boxplotPerWindowPerSite_select2016'; export at 500x1000
-ggplot(data=alpha_study1dat %>% filter(Metric=="shannon"), 
+psh <- ggplot(data=alpha_study1dat %>% filter(Metric=="shannon"), 
        aes(x=Window, y=Value, group=Window), fill="gray50") +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(alpha=0.4, width = 0.15) +
@@ -203,7 +204,7 @@ ggplot(data=alpha_study1dat %>% filter(Metric=="shannon"),
 
 
 ## plot boxplot; save as 'alpha_fp_boxplotPerWindowPerSite_select2016'; export at 800x1200
-ggplot(data=alpha_study1dat %>% filter(Metric=="faithpd"), 
+pfp <- ggplot(data=alpha_study1dat %>% filter(Metric=="faithpd"), 
        aes(x=Window, y=Value, group=Window), fill="gray50") +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(alpha=0.4, width = 0.15) +
@@ -213,6 +214,9 @@ ggplot(data=alpha_study1dat %>% filter(Metric=="faithpd"),
   labs(x="", y="Faith's PD") +
   theme_bw(base_size = 16) + 
   theme(legend.position = "none", axis.text.x = element_text(angle=45, hjust=1))
+
+## save as 'alpha_shanfaith_combo'; export at 
+ggarrange(psh, pfp, ncol=2, labels=c("A", "B"))
 
 ## animate the observed ASVs; note we've switched the x axis to Sites, and are transitioning through the Windows of date
 ## first one is for observed ASVs
@@ -261,13 +265,84 @@ rm(fp_ani1, fp_rendered)
 ################################################################################
 ################################################################################
 ## Relative abundance stacked barplots
-## Generating stacked bar plots for these 2016 sites
-## Producing both static and animation equivalent
+## first plot shows all data; second plot is just for selected 2016 sites
+## Producing both static and animation equivalent for 2016 only
 ################################################################################
 ################################################################################
+## use same 12-color palette:
+pal12 <- c('#fffe71', '#CE9834', '#9A6600', '#9BCC94', '#405E00', '#993303', 
+           '#FF6501', '#336799', '#9ACEFF', 'gray75', '#D14A89', 'gray25')
 
-## calculate per-Order read abundance; grouping all samples with shared Site+Window
+## all data:
+barpoints <- read_dat %>% 
+  group_by(StudyID, Site, Window) %>% 
+  summarise(Samples=n_distinct(SampleID)) %>% 
+  mutate(Year=ifelse(StudyID=="oro15", "2015", "2016")) %>% 
+  mutate(Labeler=paste(Site,Year,sep="-")) %>% 
+  filter(Samples > 1)
 
+barplot_plotdat <- read_dat %>% 
+  mutate(Year=ifelse(StudyID=="oro15", "2015", "2016"), Labeler=paste(Site,Year,sep="-")) %>% 
+  filter(Labeler %in% barpoints$Labeler) %>% 
+  group_by(Site, Year, Labeler, Window, WindowStart, Order) %>% 
+  summarise(Reads=sum(Reads)) %>% 
+  mutate(pReads = Reads/sum(Reads))
+
+## rearrange the levels for the facet wrap:
+barplot_plotdat$Labeler <- factor(barplot_plotdat$Labeler, levels = c(
+  "BRN-2015","COR-2015","FOX-2015","GIL-2015","HOP-2015",
+  "BRN-2016","COR-2016","FOX-2016","GIL-2016","HOP-2016",
+  "MAP-2015","MAS-2015","SWZ-2015","WLD-2015","WLT-2015",
+  "MAP-2016","MAS-2016","ALS-2016","CHI-2016","CNA-2016",
+  "EPS-2016","HOL-2016","MTV-2016","PEN-2016","CNB-2016"))
+
+## plot barplot; save as 'Order_relAbund_stackedBars_allDat'; export at 950x950
+ggplot(data = barplot_plotdat,
+       aes(x=Window, y=pReads, group=Window, fill=Order)) +
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=pal12) +
+  scale_x_continuous(breaks=c(7,10,13,16,19,22),
+                     labels=c('Mar-26', 'May-07', 'Jun-18', 'Jul-30', 'Sep-10', 'Oct-22')) +
+  scale_y_continuous(breaks = c(0,.5, 1), labels=c(0, 50, 100)) +
+  facet_wrap(~ Labeler, nrow=5) +
+  labs(x="", y="Relative Abundance (%)", fill="Order") +
+  theme_bw(base_size = 16) +
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=12), legend.position = "top") +
+  guides(fill = guide_legend(nrow = 2))
+
+########## can also plot the frequency of occurrence, not abundance of reads; just one minor switch here:
+barplot_plotdat2 <- read_dat %>% 
+  mutate(Year=ifelse(StudyID=="oro15", "2015", "2016"), Labeler=paste(Site,Year,sep="-")) %>% 
+  filter(Labeler %in% barpoints$Labeler) %>% 
+  group_by(Site, Year, Labeler, Window, WindowStart, Order) %>% 
+  mutate(Reads=ifelse(Reads > 0, 1, 0)) %>% 
+  summarise(Reads=sum(Reads)) %>% 
+  mutate(pReads = Reads/sum(Reads))
+
+## rearrange the levels for the facet wrap:
+barplot_plotdat2$Labeler <- factor(barplot_plotdat2$Labeler, levels = c(
+  "BRN-2015","COR-2015","FOX-2015","GIL-2015","HOP-2015",
+  "BRN-2016","COR-2016","FOX-2016","GIL-2016","HOP-2016",
+  "MAP-2015","MAS-2015","SWZ-2015","WLD-2015","WLT-2015",
+  "MAP-2016","MAS-2016","ALS-2016","CHI-2016","CNA-2016",
+  "EPS-2016","HOL-2016","MTV-2016","PEN-2016","CNB-2016"))
+
+## plot barplot; save as 'Order_relOccur_stackedBars_allDat'; export at 950x800
+ggplot(data = barplot_plotdat2,
+       aes(x=Window, y=pReads, group=Window, fill=Order)) +
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=pal12) +
+  scale_x_continuous(breaks=c(7,10,13,16,19,22),
+                     labels=c('Mar-26', 'May-07', 'Jun-18', 'Jul-30', 'Sep-10', 'Oct-22')) +
+  scale_y_continuous(breaks = c(0,.5, 1), labels=c(0, 50, 100)) +
+  facet_wrap(~ Labeler, nrow=5) +
+  labs(x="", y="Proportion of detections (%)", fill="Order") +
+  theme_bw(base_size = 16) +
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=12), legend.position = "top") +
+  guides(fill = guide_legend(nrow = 2))
+
+
+## for 2016 data now... calculate per-Order read abundance; grouping all samples with shared Site+Window
 barplot_study1_plotdat <- read_dat %>% 
   filter(SampleID %in% alpha_study1dat_names$`#OTU ID`) %>% 
   group_by(Site, Window, WindowStart, Order) %>% 
@@ -810,7 +885,7 @@ Order_plotdat$Samples = ifelse(Order_plotdat$Status=="distinct", -Order_plotdat$
 ## ordering remaining sites by geographic position:
 Order_plotdat$Site <- factor(Order_plotdat$Site, levels = c("COR", "GIL", "FOX", "HOP", "MAP", "BRN"))
 
-## plot barchart; save as 'ASVs_OrdersObserved_yearOverYear'; export at 1150x750
+## plot barchart; save as 'ASVs_OrdersObserved_yearOverYear'; export at 750x750
 ggplot(Order_plotdat %>% filter(Order %in% keepOrders), 
        aes(x=Order, y=Samples, color=Status, label = ASValias)) +
   geom_jitter(width = 0.2) +
@@ -819,8 +894,7 @@ ggplot(Order_plotdat %>% filter(Order %in% keepOrders),
                      breaks = c(-40, 0, 40), 
                      labels = c("40", '0', "40")) +
   labs(x="", y="Samples with ASV", color="ASVs observed in 2015 and 2016") +
-  scale_color_manual(values = c('#d8b365', '#5ab4ac')) +
-  #coord_flip() +
+  scale_color_manual(values = c('#dfc27d', '#018571')) +
   theme_bw(base_size = 16) +
   theme(legend.position = "top", axis.text.x = element_text(size = 11, angle = 22.5, hjust=1))
 
@@ -838,43 +912,87 @@ top5ASVs_perOrder <- ASVsumry %>%
   top_n(5, Samples) %>% 
   filter(Samples > 10)
 
+## calculate the faction of reads (rather than plotting absolute abundances)
+read_dat <- read_dat %>% 
+  group_by(SampleID) %>% 
+  mutate(fracReads=100*(Reads/sum(Reads)))
+
 ## use same 12-color palette:
 pal12 <- c('#fffe71', '#CE9834', '#9A6600', '#9BCC94', '#405E00', '#993303', 
            '#FF6501', '#336799', '#9ACEFF', 'gray75', '#D14A89', 'gray25')
 
 ## plot the read abundances of those 72 ASVs, faceting by Order 
-## save as 'ASVabundances_perSample_perOrder_top5detected'; export at 
+## save as 'ASVabundances_perSample_perOrder_top5detected_notrarefied'; export at 1050x800
 ggplot(read_dat %>% filter(ASValias %in% top5ASVs_perOrder$ASValias),
-       aes(x=ASValias, y=Reads, color=Order)) +
+       aes(x=ASValias, y=fracReads, color=Order)) +
   geom_jitter(width = 0.2) +
   facet_wrap(~Order, nrow=3, scales = 'free_x') +
   scale_color_manual(values = pal12) +
-  scale_y_continuous(trans = 'log2', labels=comma_format(accuracy = 1)) +
+  scale_y_continuous(breaks = c(0, 50, 100)) +
   theme_bw(base_size = 16) +
   theme(axis.text.x = element_text(size =7.5), legend.position = "top") +
-  labs(x="", y="Sequence counts", color="")
+  labs(x="", y="Sequence counts (%)", color="", caption = "sequence counts calculated using raw data (not rarefied)")
+
+## do we see the same patterns for rarefied data?
+rare_qza <- read_qza("~/Repos/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza")
+mat.tmp <- rare_qza$data
+rm(rare_qza)
+df.tmp <- as.data.frame(mat.tmp)
+rm(mat.tmp)
+df.tmp$OTUid <- rownames(df.tmp)
+rownames(df.tmp) <- NULL
+rare_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
+#rm(df.tmp)
+colnames(rare_df) <- c("ASVid", "SampleID", "Reads")
+rare_df <- rare_df %>% 
+  filter(ASVid %in% read_dat$ASVid) %>% 
+  filter(SampleID %in% read_dat$SampleID)
+## apply taxonomy info 
+taxmrg <- read_dat %>% select(ASVid, ASValias, Order) %>% distinct(ASVid, ASValias, Order)
+rare_df <- merge(rare_df, taxmrg, all.x = TRUE)
+rare_df$fracReads = 100*(rare_df$Reads/1000)
+
+## save as 'ASVabundances_perSample_perOrder_top5detected_rarefiedData'; export at 1050x800
+ggplot(rare_df %>% filter(ASValias %in% top5ASVs_perOrder$ASValias),
+       aes(x=ASValias, y=fracReads, color=Order)) +
+  geom_jitter(width = 0.2) +
+  facet_wrap(~Order, nrow=3, scales = 'free_x') +
+  scale_y_continuous(breaks = c(0, 50, 100)) +
+  scale_color_manual(values = pal12) +
+  theme_bw(base_size = 16) +
+  theme(axis.text.x = element_text(size =7.5), legend.position = "top") +
+  labs(x="", y="Sequence counts (%)", color="", caption = "sequence counts calculated using rarefied data")
 
 ## now we'll select the top 50 most deeply sequenced samples
 sampleSumry <- read_dat %>% 
-  group_by(SampleID, Site) %>% 
+  group_by(SampleID, Site, Window) %>% 
   summarise(Reads=sum(Reads))
 
-topSamples <- sampleSumry %>% ## selecting the three most abundant samples per Site
+topSamples <- sampleSumry %>% ## selecting the three most abundant samples per Site from raw sequence counts
   arrange(-Reads) %>% 
+  group_by(Site, Window) %>% 
+  top_n(1, Reads) %>%   ## sample with most reads per site per week
   group_by(Site) %>% 
-  top_n(3, Reads)
-  ## min has 20k reads. okay to use as is.
+  top_n(3, Reads)   ## top 3 most abundant samples per site
+  ## min has > 20k reads. okay to use as is.
 
-## save as 'ASVabundances_perSample__top3perSite'; export at 
+## show the proportions of reads rather than absolute abundances instead
+read_dat <- read_dat %>% 
+  group_by(SampleID) %>% 
+  mutate(fracReads=Reads/sum(Reads))
+
+## save as 'ASVabundances_perSample__top3perSite'; export at 800x800
 ggplot(read_dat %>% filter(SampleID %in% topSamples$SampleID),
                                aes(x=SampleID, y=Reads, color=Order)) +
-  geom_jitter(width=0.2, alpha=0.9) +
+  geom_jitter(data=read_dat %>% filter(SampleID %in% topSamples$SampleID & Order == "Coleoptera"), ## plot beetles first so we don't hide other bugs
+              aes(x=SampleID, y=fracReads, color=Order), width=0.2) +
+  geom_jitter(data=read_dat %>% filter(SampleID %in% topSamples$SampleID & Order != "Coleoptera"),
+              aes(x=SampleID, y=fracReads, color=Order), width=0.2) +
   scale_color_manual(values = pal12) +
-  scale_y_continuous(trans = 'log2', labels=comma_format(accuracy = 1)) +
+  scale_y_continuous(breaks = c(0, .5, 1), labels = c(0, 50, 100)) +
   theme_bw(base_size = 16) +
   facet_wrap(~Site, ncol=6, scales = "free_x") +
-  theme(legend.position = "top", 
-        axis.text.x = element_blank()) +
-  labs(x="Samples", y="Sequence counts", color="")
+  theme(legend.position = "top", axis.text.x = element_blank()) +
+  labs(x="Samples", y="Sequence counts (%)", color="")
   
 

@@ -44,7 +44,7 @@ qiime diversity alpha --i-table "$TABLE" --p-metric shannon --o-alpha-diversity 
 All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha). We partitioned our analyses to focus on particular 2016 sites that contained the greatest proportion of samples across that years sampling dates (April to October). These `.qza` files input to the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script produce the tables and figures presented in this manuscript.
 
 
-## Beta diversity estimates
+# Beta diversity estimates
 
 We compared community composition for just a select set of 2016 sites that were the most heavily sampled. This required filtering the original rarefied table to include only those samples that were present in these selected sites (see the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script for details).
 > `$STUDY1META` refers to the select list of samples filtered in the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script that pertain to nine sites from 2016: the [alpha_study1names.txt](https://github.com/devonorourke/nhguano/data/metadata/alpha_study1names.txt) file
@@ -84,7 +84,7 @@ qiime diversity pcoa --i-distance-matrix s16_dist_bc.qza --o-pcoa s16_pcoa_bc.qz
 All distance metrics are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/distmat/select2016), while all PCoA artifacts are [available here](https://github.com/devonorourke/nhguano/data/qiime_qza/pcoa/select2016).  
 
 
-## Biplots
+# Biplots
 To create the biplots we first created a compositional data table using the rarefied reads as input. We selected just the weighted Unifrac PCoA artifact as input because it the largest fraction of variation of the data in the first two principal component axes than the other three distance metrics. The output of the biplot function was used to generate the figure created in the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script:
 
 ```
