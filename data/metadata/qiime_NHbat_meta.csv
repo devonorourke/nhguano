@@ -1,4 +1,4 @@
-#SampleID,SampleID,SeqBatch,StudyID,SampleType,Date,WOY,SiteLat,SiteLong,newDate
+SiteCode,SampleID,SeqBatch,StudyID,SampleType,Date,WOY,SiteLat,SiteLong,newDate
 ALS,oro163484,7.1,oro16,sample,8/25/16,35,43.134867,-72.327917,2016-08-25
 ALS,oro163485,7.1,oro16,sample,8/25/16,35,43.134867,-72.327917,2016-08-25
 ALS,oro163486,7.1,oro16,sample,8/25/16,35,43.134867,-72.327917,2016-08-25
