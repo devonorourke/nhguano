@@ -1,0 +1,24 @@
+CLASS,CODE
+Residential|Commercial|Industrial,110
+Transportation,140
+Row crops,211
+Hay pasture,212
+Orchards,221
+Beech|Oak,412
+Paper birch|Aspen,414
+Other hardwood,419
+White|Red pine,421
+Spruce|Fir,422
+Hemlock,423
+Pitch pine,424
+Mixed forest,430
+Alpine,440
+Water,500
+Wetland:Forested,610
+Wetland:Open,620
+Wetland:Tidal,630
+Disturbed,710
+Bedrock|Vegetated,720
+Sand dunes,730
+Other cleared,790
+Tundra,800
