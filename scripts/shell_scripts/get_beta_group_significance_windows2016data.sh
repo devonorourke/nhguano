@@ -62,7 +62,7 @@ for PREFIX in $(printf "win456\nwin567\n"); do
     done
 
     ## combine all outputs into single file for particular group (win456 or win567):
-  printf 'SubjectID1\tSubjectID2\tGroup1\tGroup2\tDistance\tMetric\tWindowGroup\nFactorGroup\n' > "$PREFIX"_betasig_allMetrics_data.tsv
+  printf 'SubjectID1\tSubjectID2\tGroup1\tGroup2\tDistance\tMetric\tWindowGroup\tFactorGroup\n' > "$PREFIX"_betasig_allMetrics_data.tsv
 
   cat "$PREFIX"_betasig_site_dice_data.tsv "$PREFIX"_betasig_site_bray_data.tsv \
   "$PREFIX"_betasig_site_uuni_data.tsv "$PREFIX"_betasig_site_wuni_data.tsv \
