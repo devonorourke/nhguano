@@ -1,0 +1,52 @@
+Order,Family,Genus,Species,nSamples_wOTU,frac_Samples,OTUalias,OTUid
+Blattodea,Ectobiidae,Parcoblatta,Parcoblatta uhleriana,53,0.058954393770856504,OTU-49,7cee309d88263cb90811fe24f627aeae
+Coleoptera,Pyrochroidae,Dendroides,Dendroides canadensis,181,0.20133481646273638,OTU-10,92e807f319442dd87ddae1a3f7725e65
+Coleoptera,Pyrochroidae,Dendroides,Dendroides canadensis,47,0.05228031145717464,OTU-153,15026701e67c14acc6da34251e1b8ec4
+Coleoptera,Pyrochroidae,Dendroides,Dendroides canadensis,45,0.05005561735261402,OTU-168,0bb64283957e498be2b9cd8fa3d18c95
+Coleoptera,Pyrochroidae,Dendroides,Dendroides concolor,60,0.06674082313681869,OTU-50,04f0c5769fcb09d7d91f7e73a349518c
+Coleoptera,Scarabaeidae,Diplotaxis,NA,183,0.203559510567297,OTU-9,dacf098cf73e7cf3e16a1d89287188f6
+Coleoptera,Scarabaeidae,Diplotaxis,NA,59,0.06562847608453838,OTU-57,873a3d186ca2bfa1fc2c503b59c0d0e9
+Coleoptera,Scarabaeidae,Diplotaxis,NA,58,0.06451612903225806,OTU-103,a7b90c8d4da7f7087ba278f514194ca6
+Coleoptera,Elateridae,Hemicrepidius,Hemicrepidius brevicollis,50,0.05561735261401557,OTU-54,44ff1f1258c5ae73633dd2536fc3a50b
+Coleoptera,Elateridae,Hemicrepidius,Hemicrepidius memnonius,250,0.27808676307007785,OTU-4,80c4d80457fcc8395bbccc4f364533a8
+Coleoptera,Scarabaeidae,Labarrus,Labarrus cincticulus,59,0.06562847608453838,OTU-62,c4afba60302c265bd32b9ef5846b7377
+Coleoptera,Scarabaeidae,Maladera,Maladera castanea,330,0.3670745272525028,OTU-1,c5098366c5ba2170bb0bdbb4ebb969cf
+Coleoptera,Elateridae,Melanotus,Melanotus hyslopi,75,0.08342602892102335,OTU-132,ddfa0472353451578d9575aab094716a
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga anxia,203,0.22580645161290322,OTU-7,dd8ead02d602f21e3650a1dfafdbf815
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga anxia,52,0.05784204671857619,OTU-73,6eaae078420e552cc363c5f4780aa6fc
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,378,0.42046718576195774,OTU-2,8aa059190885cb9440084a9821d998bd
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,244,0.271412680756396,OTU-6,9b325409d4145b3b0e225a2898c95d4e
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,146,0.16240266963292546,OTU-45,dfca7860c63a33d7c089f71282707255
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,116,0.12903225806451613,OTU-110,ec9f8a7eb5d4108a2dbf70de19089914
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,112,0.12458286985539488,OTU-98,581908a907d4a43569ff7ab27e81d92f
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,80,0.08898776418242492,OTU-141,4520bec9094a2cd39253c1583cd34316
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,79,0.0878754171301446,OTU-56,164c6d1dc6dc62f3a5a9ab952da44f11
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,69,0.07675194660734148,OTU-155,cfca0b93157741b1761a48c2ef432007
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,56,0.06229143492769744,OTU-147,4995a74b93fbcbd4863b8c90d9a203e3
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,49,0.054505005561735265,OTU-247,ee3a6834c427e1b13790f3cffa05b7e5
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga hirsuta,47,0.05228031145717464,OTU-184,69b5f37bc81d188104e8bb4752dcf91a
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga longispina,111,0.12347052280311457,OTU-84,3449f6fcaac748b5a36c5669bd41c07c
+Coleoptera,Scarabaeidae,Phyllophaga,Phyllophaga longispina,95,0.10567296996662959,OTU-89,aafdb90962b5cf3f0dec2723b4a51d1e
+Coleoptera,Scarabaeidae,Phyllophaga,NA,121,0.13459399332591768,OTU-93,7a7a22fee1f403b540ef56bdd72730a3
+Coleoptera,Scarabaeidae,Phyllophaga,NA,121,0.13459399332591768,OTU-95,c805d4e616ccda7232cf489692e7448f
+Coleoptera,Scarabaeidae,Phyllophaga,NA,98,0.10901001112347053,OTU-129,31a28ac06c612e1cffa640ba7458a875
+Coleoptera,Scarabaeidae,Phyllophaga,NA,92,0.10233592880978866,OTU-122,129778c8e844bed04c1422b5a25ad7a5
+Coleoptera,Scarabaeidae,Phyllophaga,NA,46,0.05116796440489433,OTU-257,726042bb37839f5b9b9337e9ba2d2606
+Diptera,Chaoboridae,Chaoborus,Chaoborus punctipennis,52,0.05784204671857619,OTU-53,af2ab83b85a6265e8a1e56410e308ebf
+Diptera,Chironomidae,Chironomus,NA,72,0.08008898776418243,OTU-15,d60fd5104a3b25d195a9f6b2f97879b8
+Diptera,Limoniidae,Erioptera,Erioptera caliptera,53,0.058954393770856504,OTU-12,d18b9b0d9c0501fc4310fd74dbfc5a16
+Diptera,Limoniidae,Pseudolimnophila,NA,62,0.06896551724137931,OTU-17,ac6327a1ae9883cd711b1540091ab15e
+Diptera,Tipulidae,Tipula,NA,78,0.0867630700778643,OTU-36,2fcdfe59f27b507c180020747d4c77da
+Diptera,Tipulidae,Tipula,NA,74,0.08231368186874305,OTU-68,61d776536df85afa044e4b7b6f7ea839
+Diptera,Chironomidae,NA,NA,75,0.08342602892102335,OTU-19,1b18a4671325538a4ab7b6f3f4315195
+Ephemeroptera,Ephemeridae,Hexagenia,Hexagenia limbata,105,0.1167964404894327,OTU-16,3bccc7419ed71054e8d594ffa35fe0c6
+Ephemeroptera,Heptageniidae,Stenacron,Stenacron interpunctatum,52,0.05784204671857619,OTU-61,2050295dd1918980f7eb677368198625
+Ephemeroptera,Heptageniidae,Stenonema,Stenonema femoratum,75,0.08342602892102335,OTU-14,d52aa99985f4de1593549d5f2e0b7cbd
+Lepidoptera,Depressariidae,Agonopterix,NA,57,0.06340378197997776,OTU-3,73d24c9b0eca55bcce443e60c5639b37
+Lepidoptera,Noctuidae,Amphipyra,Amphipyra pyramidoides,54,0.060066740823136816,OTU-29,eb3a4a579b410351b538a2510c37a56c
+Lepidoptera,Gracillariidae,Caloptilia,Caloptilia alnivorella,77,0.08565072302558398,OTU-18,2224f202213b63a097f0a8b32859850f
+Lepidoptera,Tortricidae,Eucopina,Eucopina tocullionana,86,0.09566184649610679,OTU-13,bb7a70bd300d349afb79afa8797e76e7
+Lepidoptera,Tortricidae,Olethreutes,Olethreutes fasciatana,54,0.060066740823136816,OTU-38,1599b1cb541938729b721f96e6118499
+Megaloptera,Corydalidae,Chauliodes,Chauliodes pectinicornis,64,0.07119021134593993,OTU-127,df673a0b19267b9b666b868a983f14fa
+Trichoptera,Hydropsychidae,Hydropsyche,Hydropsyche sparna,68,0.07563959955506118,OTU-71,e1220ee8629ff7ecaff92f6010a848d9
+Trichoptera,Limnephilidae,Platycentropus,Platycentropus radiatus,70,0.0778642936596218,OTU-25,65c16f3bd80e055bfeff00f11a6fade1
