@@ -1,0 +1,7 @@
+Measure,ClassifierMethod,Lasiurus borealis,Myotis lucifugus,Noctilio albiventris,Rhogeessa tumida
+distinctOTUs,sklearn,1,3,1,1
+nReads_perSpecies,sklearn,2,1649848,12,8
+nSamples_withOTU,sklearn,1,580,1,2
+distinctOTUs,vsearch,1,1,1,0
+nReads_perSpecies,vsearch,2,1649834,12,0
+nSamples_withOTU,vsearch,1,578,1,0
