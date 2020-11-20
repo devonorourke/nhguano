@@ -5,7 +5,7 @@ library(cowplot)
 library(lubridate)
 
 ## import site late/long vals only for samples used in diet analysis (not all samples collected)
-site_data <- as.data.frame(read_csv(file="/Users/devonorourke/Documents/nau_projects/guano/NHguano_redux/redo_taxa_boldANML/min1kseqs_Samps_OTUtable_long_wTaxa_wDateBins.csv")) %>% 
+site_data <- as.data.frame(read_csv(file="https://github.com/devonorourke/nhguano/raw/master/data/text_tables/otu_tables/min1kseqs_Samps_OTUtable_long_wTaxa_wDateBins.csv.gz")) %>% 
   distinct(Site, SiteLat, SiteLong) %>% 
   rename(lat = 'SiteLat', lon = 'SiteLong')
 
@@ -76,9 +76,9 @@ ggsave(filename = "~/github/nhguano/figures/figure1_nhmapNoSampleSizes_withInset
 ## import 2015 and 2016 data
 nhsites2016 <- c("ALS", "ROL", "COR", "MAP", "BRN", "MAS", "GIL", "MTV", "FOX", "CNB", "HOL", "PEN", 'CHI', 'EPS', 'CNA', 'HOP')
 
-rawmeta2015 <- read_csv(file="~/Downloads/NHraw2015collectiondata.csv") %>% 
+rawmeta2015 <- read_csv(file="https://raw.githubusercontent.com/devonorourke/nhguano/master/data/metadata/NHraw2015collectiondata.csv") %>% 
   rename(Site = "Location name", CollectionDate = "Collection Date", SampleID = `Sample ID`) %>% 
-  select(-Box, -`WEEK OF YEAR`, -status, -PlateNumber, -X8) %>% 
+  dplyr::select(-Box, -`WEEK OF YEAR`, -status, -PlateNumber, -X8) %>% 
   mutate(Site = case_when(Site == "maple hill" ~ "MAP",
                           Site == "Hopkinton" ~ "HOP",
                           Site == "massabesic" ~ "MAS",
@@ -95,20 +95,20 @@ rawmeta2015 <- read_csv(file="~/Downloads/NHraw2015collectiondata.csv") %>%
   mutate(Date = mdy(CollectionDate),
          Year = year(Date),
          SampleID = paste0("oro15", SampleID)) %>% 
-  select(-CollectionDate)
+  dplyr::select(-CollectionDate)
 
-rawmeta2016 <- read_csv(file="~/Downloads/NHraw2016collectiondata.csv") %>% 
-  select(StudyID, SampleID, LocationName, CollectionDate) %>% 
+rawmeta2016 <- read_csv(file="https://raw.githubusercontent.com/devonorourke/nhguano/master/data/metadata/NHraw2016collectiondata.csv") %>% 
+  dplyr::select(StudyID, SampleID, LocationName, CollectionDate) %>% 
   mutate(Date = mdy(CollectionDate),
          Year = year(Date)) %>% 
-  select(-CollectionDate) %>% 
+  dplyr::select(-CollectionDate) %>% 
   filter(LocationName %in% nhsites2016) %>% 
   filter(StudyID == "oro16") %>% 
   filter(!grepl("contaminated", SampleID)) %>%  ## discard the few contaminated samples
   mutate(SampleID = paste0("oro16", SampleID),
          Year = ifelse(is.na(Year), 2016, Year)) %>% 
   rename(Site = "LocationName") %>% 
-  select(-StudyID)
+  dplyr::select(-StudyID)
 
 rawmetaAll <- rbind(rawmeta2015, rawmeta2016)
 rm(rawmeta2015, rawmeta2016)
@@ -121,7 +121,7 @@ allmeta_sampleSumry <- rawmetaAll %>%
   rename(collected2015 = `2015`, collected2016 = `2016`)
 
 ## bring in seq data relevant to these samples... how many of these samples ended up generating sufficient seq data used in our diet analyses?
-allrawSamplesWithSeqData <- read_csv("/Users/devonorourke/Documents/nau_projects/guano/NHguano_redux/redo_taxa_boldANML/min1kseqs_Samps_OTUtable_long_wTaxa_wDateBins.csv")
+allrawSamplesWithSeqData <- read_csv("https://github.com/devonorourke/nhguano/raw/master/data/text_tables/otu_tables/min1kseqs_Samps_OTUtable_long_wTaxa_wDateBins.csv.gz")
 allmeta_seqSumry <- allrawSamplesWithSeqData %>% 
   group_by(Year, Site) %>% 
   summarise(SamplesAnalyzed = n_distinct(SampleID)) %>% 
