@@ -1,0 +1,11 @@
+Class,Df,Sum.Sq,R2,F.value,Pr..F.,Metric,WindowGroup
+Site,6,17.231,0.126,8.626,0.001,Dice-Sorensen,windows456
+Window,2,6.533,0.048,9.81,0.001,Dice-Sorensen,windows456
+Site:Window,12,10.031,0.073,2.511,0.001,Dice-Sorensen,windows456
+Residual,310,103.214,0.753,NA,NA,Dice-Sorensen,windows456
+Total,330,137.009,1,NA,NA,Dice-Sorensen,windows456
+Site,6,13.7,0.139,9.689,0.001,UniFrac-Unweighted,windows456
+Window,2,4.946,0.05,10.495,0.001,UniFrac-Unweighted,windows456
+Site:Window,12,7.064,0.072,2.498,0.001,UniFrac-Unweighted,windows456
+Residual,310,73.056,0.74,NA,NA,UniFrac-Unweighted,windows456
+Total,330,98.766,1,NA,NA,UniFrac-Unweighted,windows456
