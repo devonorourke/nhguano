@@ -1,0 +1,9 @@
+Class,GroupFactor,Df,SumOfSqs,Fmodel,pValue,Metric
+Groups,Site,2,0.005,0.445,0.642,Dice-Sorensen
+Residuals,Site,78,0.42,NA,NA,Dice-Sorensen
+Groups,Year,1,0.004,0.769,0.383,Dice-Sorensen
+Residuals,Year,79,0.381,NA,NA,Dice-Sorensen
+Groups,Site,2,0.009,1.061,0.351,Unifrac Unweighted
+Residuals,Site,78,0.336,NA,NA,Unifrac Unweighted
+Groups,Year,1,0.002,0.824,0.367,Unifrac Unweighted
+Residuals,Year,79,0.211,NA,NA,Unifrac Unweighted

@@ -1,0 +1,11 @@
+Class,Df,Sum.Sq,R2,F.value,Pr..F.,Metric
+Site,2,2.097,0.063,2.736,0.001,Dice-Sorensen
+Year,1,1.008,0.03,2.63,0.001,Dice-Sorensen
+Site:Year,2,1.426,0.043,1.86,0.001,Dice-Sorensen
+Residual,75,28.745,0.864,NA,NA,Dice-Sorensen
+Total,80,33.276,1,NA,NA,Dice-Sorensen
+Site,2,1.845,0.077,3.349,0.001,Unifrac Unweighted
+Year,1,0.499,0.021,1.813,0.004,Unifrac Unweighted
+Site:Year,2,0.82,0.034,1.488,0.014,Unifrac Unweighted
+Residual,75,20.66,0.867,NA,NA,Unifrac Unweighted
+Total,80,23.824,1,NA,NA,Unifrac Unweighted
