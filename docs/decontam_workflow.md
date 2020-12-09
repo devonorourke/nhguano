@@ -51,7 +51,7 @@ A few notes about this table:
 
 Notably, the Decontam package also contains a parameter to control for batch effects. In our case we wanted to test for both DNA plate ("DNAplate") and sequencing ("SeqBatch") batch effects. We found that there were similar distributions of the left tail of Decontam scores for each batch type, but unique profiles to the right of the distribution:
 
-![imagehere:decontam_prevHist_batch](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/decontam_prevHist_batch.png)
+![imagehere:decontam_prevHist_batch](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/decontam_prevHist_batch.png)
 
 The overall number of ASVs identified as suspected contaminants were fairly similar among the `DNAplate` and `SeqBatch` batch types:
 
@@ -65,7 +65,7 @@ The following table demonstrates how many ASVs are shared or are distinct to a g
 
 Because there were distinct ASVs being flagged depending on the batch type, I wanted to explore _which_ ASVs those where, and how frequently they were detected among all the samples. I chose a threshold of 0.2 for the ASVs identified as contaminants in either the `SeqBatch` or `DNAplate` batch method. The following plot illustrates that the particular batch type we're employing makes a big difference if we were going to blindly remove a particular ASV from the dataset that was flagged by Decontam:
 
-![decontam_Reads-ASVs_ContamOrNot](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/decontam_Reads-ASVs_ContamOrNot.png)
+![decontam_Reads-ASVs_ContamOrNot](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/decontam_Reads-ASVs_ContamOrNot.png)
 
 A few observations from this figure:
 1. The most prevalent ASVs in our dataset are routinely identified as contaminants by the DNAplate method, but are typically not by the sequencing batch method. This makes me suspicious that there is not a sufficient statistical power to support the DNAplate-based batch filter. For example, it could be that a partiuclar ASV is marked as a contaminant in 3 of 40 DNA plates, but not so in the other 37. Nevertheless, we're seeing some ASVs in hundreds of samples, and these are likely _not_ contaminants: they're the kinds of sequence variants we expect in the bat diet (each ASV was classified and assigned taxonomic identity, explained in the last section of this document).
@@ -145,7 +145,7 @@ The `tmp.neg_sumrytable.qzv` file (visualized in the table below) suggests that 
 
 We can see that the overall observed richness doesn't change much across that range of 400-600 bases in the `tmp.neg_alphaviz.qza` file. Here's a screenshot of what that file looks like in the viewer:
 
-![imagehere:contam_alpharareViz](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/contam_alpharareViz.png)
+![imagehere:contam_alpharareViz](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/contam_alpharareViz.png)
 
 Given these data, we selected a sampling depth of 500 reads in attempts to preserve diversity without losing too many NTC samples. We next rarefied the _entire_ dataset at that depth in QIIME. We also created another summary visualization of the remaining table to clarify which samples were retained in the analysis.
 
@@ -244,19 +244,19 @@ The per-sample dissimilarities were subsequently ordinated and visualized in the
 
 The first plot examines the relationship of community composition between negative control samples (purple color) and positive control samples (grey), where each label of text on the plot represents the Sequencing batch the sample was from:
 
-![imagehere:contam_pcoa_4metric_bySeq](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/contam_pcoa_4metric_bySeq.png)
+![imagehere:contam_pcoa_4metric_bySeq](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/contam_pcoa_4metric_bySeq.png)
 
 The trends in these relationshps are strongest among the unweighted metrics, particularly the Dice-Sorensen metric. Because sequencing batches generally had samples that were extracted in similar locations and dates we would expect there to be some minor relationship to sequencing batches even among negative controls. However when abundances are taken into account, we find less of a relationship within sequencing batches. Further, when phylogenetic information is added with abundance information we find that there are negative control samples from each sequencing run in the same two dimensional space as another sequencing run. With so little overall variation explained by the unweighted metrics, we find no reason to be concerned about contamination due to the sequencing batch.  
 
 The next plot highlights how negative control samples relate to their respective positive controls with respect to the DNA plate a sample was extracted from (again, purple indicates a negative control sample, and a gray sample is a guano sample):  
 
-![imagehere:contam_pcoa_4metric_byDNA](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/contam_pcoa_4metric_byDNA.png)
+![imagehere:contam_pcoa_4metric_byDNA](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/contam_pcoa_4metric_byDNA.png)
 
 We find that there is a greater similarity among samples with common DNAplate numbers than with sequencing batch numbers. This is precicely what we would expect if there was a minor amount of variation occurring during DNA extraction - negative control samples that looked more like _other_ plates would be an indication of reagent contamination occurring across multiple extraction experiments and would be even more concerning. Thus we'd expect both guano and negative control samples to cluster together given that the guano samples were generally extracted in batches related to the site and week they were obtained. Nevertheless, while some samples are more similar to each other within the same DNAplate, the similarity of multiple negative control samples within a single DNAplate often vary in the same ordination space. If the entirety of an extraction was contaminated, we would expect all the negative control samples to cluster together more tightly to each other than they do to the other true samples, yet we don't have any strong evidence for that.
 
 To show one example of this, we selected a single DNAplate (**DNAplate 33**) and illustrate that the specific well location of a negative control sample often does not match up in composition to the expected neighboring wells:
 
-![imagehere:contam_pcoa_4metric_byDNAwel33only](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/contam_pcoa_4metric_byDNAwell33only.png)
+![imagehere:contam_pcoa_4metric_byDNAwel33only](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/contam_pcoa_4metric_byDNAwell33only.png)
 
 These data for just a single DNAplate indicate two further pieces of evidence suggesting that we do not need to be concerned about particular ASVs contaminating entire DNAplates:
 1. We do not see that the NTC samples are clustering together, thus there are no specific ASVs that appear to be dominating the negative control composition  
@@ -304,7 +304,7 @@ qiime quality-control exclude-seqs --p-method vsearch \
 
 The ASVs identified in the [mock.expectSeqs.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/mock/mock.expectSeqs.qza) file served as input for the final section of the [R script for this workflow](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/decontam_efforts.R). We assigned any ASVid identified by the above alignment as a MockASV in the following plot.
 
-![imagehere:contam_mockIndexBleed](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/contam_mockIndexBleed.png)
+![imagehere:contam_mockIndexBleed](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/contam_mockIndexBleed.png)
 
 Interestingly, there were **347 ASVs** that aligned within 98% identity and 97% coverage** among the 10,797 ASVs in the entire dataset. However, as the plot above indicates, these ASVs were uniformly extremely low abundant sequences relative to the expected mock sequences: the highest _unexpected_ ASV contained just 14 reads, with a mean of just 8.3 reads per unexpected ASV. This is exactly what we would expect: a very small proportion of cross talk in terms of read abundance, but given the large number of unique sequence variants among the entirety of the guano samples in the dataset, it's unsurprising that a few hundred of these are misassigned to a mock sample. On a per-sample basis, there are 321 NH guano samples that contain at least one of these mock-associated ASVs, but there are always very few sequence counts attributed to any one of those 25 mock-associated ASVs. While there was a maximum of 249 sequences detected for a single mock-associated ASV in a single sample, the average number with which any one mock-associated ASV is detected in a sample is just 2 sequences. Among all 25 of these ASVs, we detect a mean of 27 sequences and a median of 15 sequences. These data suggest that while cross-talk is quite pervasive from our mock samples into the broader population of sequence samples, but this is expected given that these mock samples were typically more deeply sequenced per run than other guano samples. Moreover, the overal abundance of these mock ASVs are extremely low, suggesting that abundance-based diversity metrics will not be influenced by this degree of cross-talk.
 
@@ -428,11 +428,11 @@ qiime feature-classifier classify-consensus-vsearch \
 
 We then exported the taxonomy results captured in the [tmp.raw_bigDB_VStax_c94p97.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/taxonomy/tmp.raw_bigDB_VStax_c94p97.qza) file and imported the matching [tmp.raw_bigDB_VStax_c94p97.tsv](https://github.com/devonorourke/nhguano/blob/master/data/tax) file into a separate [taxonomy comparisons R script](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/classifier_comparisons.R). We found that the Naive Bayes and VSEARCH classifiers tended to classify a particular ASV with the same taxonomic information for most ASVs overall. However, we found that while the same taxonomic name was assigned to nearly all ASVs from the Kingdom through Order levels, the classifiers began to assign different values at Family through Species levels. Notably, this could be for two distinct reasons: the classifiers assigned _different_ names to the same ASV, or, one classifier assigned no information to that level while the other did.
 
-![imagehere:taxcomp_matchStatus](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/taxcomp_matchStatus.png)
+![imagehere:taxcomp_matchStatus](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/taxcomp_matchStatus.png)
 
 To address whether these data were being classified as different taxa or if the Naive Bayes classifier was tending to assign a value to a particular ASV where VSEARCH was not, we calculated the number of times the classifiers were in agreement for an ASV, disagreed while both having information, or disagreed because one classifier contained information while the other did not.
 
-![imagehere:taxcomp_missingStatus](https://github.com/devonorourke/nhguano/blob/master/figs_for_docs/figures/taxcomp_missingStatus.png)
+![imagehere:taxcomp_missingStatus](https://github.com/devonorourke/nhguano/blob/master/figures/figs_for_docs/taxcomp_missingStatus.png)
 
 
 It's clear that the Naive Bayes classifier and VSEARCH tend to agree far more than they disagree, and that when these disagreements arise, it tends to be because VSEARCH is not assigning any information at a particular level (especially at Kingdom through Order levels). This is quite likely due to the nature of how we've defined the VSEARCH parameters: any value that is less than 97% identical across at least 94% of the query is left undefined, whereas the supervised learning classifier has no alignment parameters; in fact, the default confidence value of 70% can be applied recursively at every taxonomic level. In addition, the QIIME implementation of VSEARCH applies a least common ancestor (LCA) process while the Naive Bayes version does not; thus even what a good candidate is detected about the alignment parameter thresholds, you can lose information in the instances where multiple best hits exist and taxonomic information disagree. For the sake of our study, we adopted a relatively conservative approach and retained any  VSEARCH result that contained at least Order-level information. For any ASV that was not named to at least Order rank, we substituted the Naive Bayes classification instead. While this helped rescue several ASVs, we found that most of the ASVs being rescued belonged to just a handful of taxa (especially a Scarab beetle in the _Phyllophaga_ genus). We discovered that a few of our most prominent ASVs were still yet to have any classification assigned to them, so we queried BOLD directly using a list of ASVs that were present in at least 1% of all samples or had at least 10,000 reads among all samples (this was 52 ASVs in all). Ultimately the vast majority of these ASVs reported no significant matches and are likely either a sequence variant that contains no moderately similar alignment among available reference sequences or is some chimeric sequence that was not filtered during the DADA2 pipeline. A few taxa, however, did meet the criteria of having at least 97% identity and these were added to update the previously undefined list. We finished our filtering of the original dataset by removing any non-arthropod record (ex. Nematodes) and removed any arthropod that was not present in at least 1% of the remaining records. This final .csv file ([filtered_dataset.csv](https://github.com/devonorourke/nhguano/data/filtered_dataset.csv)) consists of the per-sample, per-ASV read abundances with all associated metadata and taxonomic information. That file was used to create a few of the summary plots presented in this manuscript; the remaining unique ASVs in that file were then used as input to create our final sample-filtered, ASV-filtered `.qza` object with which diversity tests were conducted.
