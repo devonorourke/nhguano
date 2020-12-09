@@ -19,12 +19,12 @@ library(ape)
 ########################################################################
 
 ## import metadata
-metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
+metadata <- read_csv(file="https://raw.githubusercontent.com/devonorourke/nhguano/master/data/metadata/allbat_meta.csv")
 metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
 metadata <- as.data.frame(metadata)
 
-## import taxonomy
-taxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax_c89p97.tsv", delim="\t")
+## import taxonomy file
+taxonomy <- read_delim(file="https://raw.githubusercontent.com/devonorourke/nhguano/master/data/taxonomy/tmp.raw_bigDB_VStax_c89p97.tsv", delim="\t")
 taxonomy <- taxonomy %>% separate(., 
          col = Taxon, 
          sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
@@ -38,7 +38,12 @@ row.names(metadata) <- metadata$SampleID
 phy_meta <- sample_data(metadata)
 
 ## import ASV table; save as both physeq object (for Decontam) and long-format (for custom plotting later)
-qzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/tmp.raw_table.qza"
+  ## import the original ASV table (not clustered):
+## change path below to your own path!
+# download.file(url = "https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/ASVtable/tmp.raw_table.qza",
+#               destfile = "~/Desktop/tmp.raw_table.qza")
+
+qzapath="~/github/nhguano/data/qiime_qza/ASVtable/tmp.raw_table.qza" ## setting file path to my local machine
 features <- read_qza(qzapath)
 mat.tmp <- features$data
 df.tmp <- as.data.frame(mat.tmp)
@@ -59,13 +64,12 @@ tmp1 <- long_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrang
 long_df <- merge(long_df, tmp1)
 rm(tmp1, taxonomy, features)
 
-
 ## How rare are these ASVs anyway?
 nASVs <- long_df %>% group_by(ASVid) %>% summarise(Samples=n_distinct(SampleID)) %>% arrange(Samples)
-nrow(nASVs %>% filter(Samples == 1))    ## singleton ASVs: 7,585
-nrow(nASVs %>% filter(Samples >= 2))    ## singleton ASVs: 3,210
-nrow(nASVs %>% filter(Samples >= 5))    ## singleton ASVs: 1,189
-nrow(nASVs %>% filter(Samples >= 50))    ## singleton ASVs: 128
+nrow(nASVs %>% filter(Samples == 1))    ## singleton ASVs: 7,641
+nrow(nASVs %>% filter(Samples >= 2))    ## singleton ASVs: 3,156
+nrow(nASVs %>% filter(Samples >= 5))    ## singleton ASVs: 1,185
+nrow(nASVs %>% filter(Samples >= 50))    ## singleton ASVs: 127
 nrow(nASVs %>% filter(Samples >= 100))    ## singleton ASVs: 39
 rm(nASVs)
 
@@ -76,7 +80,7 @@ long_df %>% group_by(SampleType, SampleID) %>% summarise(Reads=sum(Reads)) %>%
   mutate(pReads=round(Reads/sum(Reads),4) * 100) %>% 
   select(SampleType, Samples, pSamples, Reads, pReads)
 ## for all samples (could have as little as 1 read per sample!)..
-  ## 206 ncontrols make up about 6.3% of all samples, yet contribute just 0.43% of all reads
+  ## 183 ncontrols make up about 6% of all samples, yet contribute just 0.43% of all reads
   ## guano samples comprise majority of samples and sequence space
 
 ## If we filter by requiring at least 500 reads per sample (and thus drop out any sample that had very few overall reads)..
@@ -87,7 +91,7 @@ long_df %>% group_by(SampleType, SampleID) %>% summarise(Reads=sum(Reads)) %>% f
   mutate(pReads=round(Reads/sum(Reads),4) * 100) %>% 
   select(SampleType, Samples, pSamples, Reads, pReads)
 ## Filtering demonstrates that among those samples with at least 500 reads...
-  ## We've lost almost 90% of our control samples, and about 50% of guano samples (so minread disproportionately from negatives)
+  ## We've lost almost all of our control samples (and about 50% of guano samples!) so a read minmum disproportionately from negatives
   ## There are fewer overall reads remaining to control samples now than before (0.37% vs 0.43%), even after removing the "low abundant" control samples
 
 
@@ -196,10 +200,10 @@ cp_NTCbasic_ASVs_5 <- basic_contam.prev %>% filter(threshold=="0.5" & contaminan
 uniqNTC_ASVs <- long_df %>% filter(SampleType=="ncontrol") %>% pull(ASVid) %>% unique()
 uniqSamp_ASVs <- long_df %>% filter(SampleType=="sample") %>% pull(ASVid) %>% unique()
 privateNTC_ASVS <- setdiff(uniqNTC_ASVs, uniqSamp_ASVs)
-private_NTCbasic_ASVs_1 <- intersect(cp_NTCbasic_ASVs_1, privateNTC_ASVS)  ## 12 NTCs flagged as "contaminants" aren't even in true samples (these are likely the mock samples)
-private_NTCbasic_ASVs_2 <- intersect(cp_NTCbasic_ASVs_2, privateNTC_ASVS)  ## 12 again... for all thresholds.
-private_NTCbasic_ASVs_3 <- intersect(cp_NTCbasic_ASVs_3, privateNTC_ASVS)
-private_NTCbasic_ASVs_5 <- intersect(cp_NTCbasic_ASVs_5, privateNTC_ASVS)
+private_NTCbasic_ASVs_1 <- intersect(cp_NTCbasic_ASVs_1, privateNTC_ASVS)  ## 1 NTC flagged as "contaminant" isn't in true samples; present in 2 samples, generated just 6 reads
+private_NTCbasic_ASVs_2 <- intersect(cp_NTCbasic_ASVs_2, privateNTC_ASVS)  ## same one NTC as above
+private_NTCbasic_ASVs_3 <- intersect(cp_NTCbasic_ASVs_3, privateNTC_ASVS)   ## same one NTC as above
+private_NTCbasic_ASVs_5 <- intersect(cp_NTCbasic_ASVs_5, privateNTC_ASVS)   ## same one NTC as above
 
 ## Of al the ASVs flagged by the model, how many are private to true samples?
 cp_SAMPbasic_ASVs_1 <- basic_contam.prev %>% filter(threshold=="0.1" & contaminant==FALSE) %>% pull(ASVid)
@@ -207,14 +211,19 @@ cp_SAMPbasic_ASVs_2 <- basic_contam.prev %>% filter(threshold=="0.2" & contamina
 cp_SAMPbasic_ASVs_3 <- basic_contam.prev %>% filter(threshold=="0.3" & contaminant==FALSE) %>% pull(ASVid)
 cp_SAMPbasic_ASVs_5 <- basic_contam.prev %>% filter(threshold=="0.5" & contaminant==FALSE) %>% pull(ASVid)
 privateSAMP_ASVS <- setdiff(uniqSamp_ASVs, uniqNTC_ASVs)
-private_SAMPbasic_ASVs_1 <- intersect(cp_SAMPbasic_ASVs_1, privateSAMP_ASVS)  ## 2,803 ASVs are not found in any negative control
-private_SAMPbasic_ASVs_2 <- intersect(cp_SAMPbasic_ASVs_2, privateSAMP_ASVS)  ## 2,803 again... for all thresholds.
+private_SAMPbasic_ASVs_1 <- intersect(cp_SAMPbasic_ASVs_1, privateSAMP_ASVS)
+length(private_SAMPbasic_ASVs_1)  ## 2,762 ASVs are not found in any negative control
+private_SAMPbasic_ASVs_2 <- intersect(cp_SAMPbasic_ASVs_2, privateSAMP_ASVS)
 private_SAMPbasic_ASVs_3 <- intersect(cp_SAMPbasic_ASVs_3, privateSAMP_ASVS)
 private_SAMPbasic_ASVs_5 <- intersect(cp_SAMPbasic_ASVs_5, privateSAMP_ASVS)
+length(private_SAMPbasic_ASVs_2)  ## 2,762 ASVs are not found in any negative control
+length(private_SAMPbasic_ASVs_3)  ## 2,762 ASVs are not found in any negative control
+length(private_SAMPbasic_ASVs_5)  ## 2,762 ASVs are not found in any negative control
 
 ## Finally, how many ASVs are shared between the NTCs and true samples?
 common_ASVS_NTCandSAMP <- intersect(uniqNTC_ASVs, uniqSamp_ASVs)
-  ## 385 ASVs are shared among these data types (or about 12% overall)
+length(common_ASVS_NTCandSAMP)
+  ## 382 ASVs are shared among these data types (or about 12% overall)
 
 rm(list = ls(pattern = "cp_basic_ASVs_*"))
 rm(list = ls(pattern = "cp_NTCbasic_ASVs_*"))
@@ -261,6 +270,7 @@ batch_contam.table <- batch_contam.prev %>%
 ## plot; save as 'decontam_prevTable_batch'; export at 350x400
 formattable(batch_contam.table)
 rm(batch_contam.table)
+
 ## plot histogram; save as 'decontam_prevHist_batch'; export at 500x500
 ggplot(data = batch_contam.prev %>% filter(threshold=="0.1"), aes(p, fill=batch)) + 
   geom_histogram(bins=100, color="black") +
@@ -387,7 +397,7 @@ seq.df.pa <- data.frame(pa.pos=taxa_sums(psf.pa.pos), pa.neg=taxa_sums(psf.pa.ne
   mutate(ASVid=row.names(.)) %>% mutate(Batch="SeqBatch")
 df.pa <- rbind(dna.df.pa, seq.df.pa)
 ASVkey <- long_df %>% group_by(ASVid, ASValias) %>% summarise(Samples=n_distinct(SampleID)) %>% select(-Samples)
-write.csv(ASVkey, file="~/Repos/nhguano/data/tax/asvkey_allASVs.csv", quote = FALSE, row.names = FALSE)
+write_csv(ASVkey, file="~/github/nhguano/data/fasta/asvkey_allASVs.csv")
 df.pa <- merge(df.pa, ASVkey)
 rm(dna.df.pa, seq.df.pa)
 
