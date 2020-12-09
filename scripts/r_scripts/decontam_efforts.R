@@ -489,154 +489,6 @@ rm(p0, p1, prev_plotdat)
 
 
 ########################################################################
-## Decontam subseq repeat: Same approach as above, examining..
-## ..the threshold==0.2, and SeqBatch/DNAplate batch effect
-## But! what's different here is we're going to drop the bottom 20 reads..
-## ..from every per-sample per-ASV observations. 
-## I wonder how many of those NTC asvs get dropped, and how many remaining ASVs are..
-## ,,still considered contaminants by the model?
-########################################################################
-
-## start by filtering the physeq object to create the new dataset to work with
-psfs  = transform_sample_counts(psf, function(x) x -50 )              ## subtract 50 reads from every element of the OTU table
-psfs  = transform_sample_counts(psfs, function(x) ifelse(x<0, 0, x))  ## convert any negative values to zero
-psfs <- filter_taxa(psfs, function (x) {sum(x > 0) > 1}, prune=TRUE)  ## drop any ASVs with zero reads now
-  ntaxa(psf)                                                          ## 3,210 ASVs in original set
-  ntaxa(psfs)                                                         ## 1,222 ASVs remain
-psfs <- prune_samples(sample_sums(psfs) > 0, psfs)                    ## drop any samples with no data
-  nsamples(psf)                                                       ## 3,232 samples originally
-  nsamples(psfs)                                                      ## 2,093 samples left
-psfsm = subset_samples(psfs, SampleType != "mock")                    ## drops mock samples for DNAplate decontam test
-
-## make the new long-format of the reads with metadata:
-df.tmp <- as.data.frame(as(otu_table(psfs), "matrix"))
-df.tmp$OTUid <- rownames(df.tmp)
-rownames(df.tmp) <- NULL
-long_tmp <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
-rm(df.tmp)
-colnames(long_tmp) <- c("ASVid", "SampleID", "Reads")
-long_tmp <- merge(long_tmp, metadata) %>% merge(., ASVkey)
-
-## generate decontam data for basic and batch methods at 0.1 and 0.2 thresholds
-sub_basic_01_contam.prev <- isContaminant(psfsm, method = "prevalence", neg = "is.neg", threshold = 0.1)
-sub_basic_01_contam.prev <- sub_basic_01_contam.prev %>% mutate(ASVid=row.names(sub_basic_01_contam.prev)) %>% mutate(batch="basic", threshold="0.1")
-sub_dna_01_contam.prev <- isContaminant(psfsm, method = "prevalence", neg = "is.neg", threshold = 0.1, batch="DNAplate")
-sub_dna_01_contam.prev <- sub_dna_01_contam.prev %>% mutate(ASVid=row.names(sub_dna_01_contam.prev)) %>% mutate(batch="DNAplate", threshold="0.1")
-sub_seq_01_contam.prev <- isContaminant(psfsm, method = "prevalence", neg = "is.neg", threshold = 0.1, batch="SeqBatch")
-sub_seq_01_contam.prev <- sub_seq_01_contam.prev %>% mutate(ASVid=row.names(sub_seq_01_contam.prev)) %>% mutate(batch="SeqBatch", threshold="0.1")
-sub_basic_02_contam.prev <- isContaminant(psfsm, method = "prevalence", neg = "is.neg", threshold = 0.2)
-sub_basic_02_contam.prev <- sub_basic_02_contam.prev %>% mutate(ASVid=row.names(sub_basic_02_contam.prev)) %>% mutate(batch="basic", threshold="0.2")
-sub_dna_02_contam.prev <- isContaminant(psfsm, method = "prevalence", neg = "is.neg", threshold = 0.2, batch="DNAplate")
-sub_dna_02_contam.prev <- sub_dna_02_contam.prev %>% mutate(ASVid=row.names(sub_dna_02_contam.prev)) %>% mutate(batch="DNAplate", threshold="0.2")
-sub_seq_02_contam.prev <- isContaminant(psfsm, method = "prevalence", neg = "is.neg", threshold = 0.2, batch="SeqBatch")
-sub_seq_02_contam.prev <- sub_seq_02_contam.prev %>% mutate(ASVid=row.names(sub_seq_02_contam.prev)) %>% mutate(batch="SeqBatch", threshold="0.2")
-
-## combine for tables/plots
-sub_contam.prev <- rbind(sub_basic_01_contam.prev, sub_dna_01_contam.prev, sub_seq_01_contam.prev, sub_basic_02_contam.prev, sub_dna_02_contam.prev, sub_seq_02_contam.prev)
-rm(sub_basic_01_contam.prev, sub_dna_01_contam.prev, sub_seq_01_contam.prev, sub_basic_02_contam.prev, sub_dna_02_contam.prev, sub_seq_02_contam.prev)  
-
-## table of TRUE/FALSE per batch method  
-sub_table <- sub_contam.prev %>% 
-  group_by(batch, contaminant, threshold) %>% 
-  tally() %>% 
-  spread(., contaminant, n) %>% arrange(batch, threshold)
-## plot; save as 'decontam_prevTable_sub10reads'; export at 300x150
-formattable(sub_table)
-rm(sub_table)
-
-## plot histogram; save as 'decontam_prevHist_sub10reads'; export at 500x500
-ggplot(data = sub_contam.prev, aes(p, fill=batch)) + 
-  geom_histogram(bins=100, color="black") +
-  facet_grid(batch ~ .) +
-  scale_fill_manual(values=c("white", "grey25", "gray75")) +
-  scale_y_continuous(breaks=c(0, 400, 800)) +
-  theme_bw() +
-  theme(legend.position="none",
-        axis.text = element_text(size=14), axis.title = element_text(size=15),
-        strip.background.x = element_blank(), strip.text.x = element_blank(),
-        strip.text.y = element_text(size=14)) +
-  labs(x="decontam Score", y="Number ASVs", subtitle = "Deconam Scores by Batch Type\n50 sequence counts removed from each ASV per sample")
-
-
-## Which ASVs were still considered contaminants?
-basic_01_contamASVs <- sub_contam.prev %>% filter(threshold=="0.1" & batch=="basic" & contaminant==TRUE) %>% select(ASVid)
-dna_01_contamASVs <- sub_contam.prev %>% filter(threshold=="0.1" & batch=="DNAplate" & contaminant==TRUE) %>% select(ASVid)
-seq_01_contamASVs <- sub_contam.prev %>% filter(threshold=="0.1" & batch=="SeqBatch" & contaminant==TRUE) %>% select(ASVid)
-basic_02_contamASVs <- sub_contam.prev %>% filter(threshold=="0.2" & batch=="basic" & contaminant==TRUE) %>% select(ASVid)
-dna_02_contamASVs <- sub_contam.prev %>% filter(threshold=="0.2" & batch=="DNAplate" & contaminant==TRUE) %>% select(ASVid)
-seq_02_contamASVs <- sub_contam.prev %>% filter(threshold=="0.2" & batch=="SeqBatch" & contaminant==TRUE) %>% select(ASVid)
-
-## summary for 01 and 02 thresholds per batch type
-basic_01_contam_sub_sumry <- long_tmp %>% filter(ASVid %in% basic_01_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="contam", Batch="basic", Threshold="0.1")
-dna_01_contam_sub_sumry <- long_tmp %>% filter(ASVid %in% dna_01_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="contam", Batch="DNAplate", Threshold="0.1")
-seq_01_contam_sub_sumry <- long_tmp %>% filter(ASVid %in% seq_01_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="contam", Batch="SeqBatch", Threshold="0.1")
-basic_01_noncontam_sub_sumry <- long_tmp %>% filter(!ASVid %in% basic_01_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="noncontam", Batch="basic", Threshold="0.1")
-dna_01_noncontam_sub_sumry <- long_tmp %>% filter(!ASVid %in% dna_01_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="noncontam", Batch="DNAplate", Threshold="0.1")
-seq_01_noncontam_sub_sumry <- long_tmp %>% filter(!ASVid %in% seq_01_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="noncontam", Batch="SeqBatch", Threshold="0.1")
-basic_02_contam_sub_sumry <- long_tmp %>% filter(ASVid %in% basic_02_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="contam", Batch="basic", Threshold="0.2")
-dna_02_contam_sub_sumry <- long_tmp %>% filter(ASVid %in% dna_02_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="contam", Batch="DNAplate", Threshold="0.2")
-seq_02_contam_sub_sumry <- long_tmp %>% filter(ASVid %in% seq_02_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="contam", Batch="SeqBatch", Threshold="0.2")
-basic_02_noncontam_sub_sumry <- long_tmp %>% filter(!ASVid %in% basic_02_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="noncontam", Batch="basic", Threshold="0.2")
-dna_02_noncontam_sub_sumry <- long_tmp %>% filter(!ASVid %in% dna_02_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="noncontam", Batch="DNAplate", Threshold="0.2")
-seq_02_noncontam_sub_sumry <- long_tmp %>% filter(!ASVid %in% seq_02_contamASVs$ASVid) %>%  group_by(SampleType, ASVid, ASValias) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads)) %>% mutate(Status="noncontam", Batch="SeqBatch", Threshold="0.2")
-
-
-sub_sumry <- rbind(basic_01_contam_sub_sumry, dna_01_contam_sub_sumry, seq_01_contam_sub_sumry, basic_01_noncontam_sub_sumry, dna_01_noncontam_sub_sumry, seq_01_noncontam_sub_sumry,
-                     basic_02_contam_sub_sumry, dna_02_contam_sub_sumry, seq_02_contam_sub_sumry, basic_02_noncontam_sub_sumry, dna_02_noncontam_sub_sumry, seq_02_noncontam_sub_sumry)
-rm(basic_01_contam_sub_sumry, dna_01_contam_sub_sumry, seq_01_contam_sub_sumry, basic_01_noncontam_sub_sumry, dna_01_noncontam_sub_sumry, seq_01_noncontam_sub_sumry,
-   basic_02_contam_sub_sumry, dna_02_contam_sub_sumry, seq_02_contam_sub_sumry, basic_02_noncontam_sub_sumry, dna_02_noncontam_sub_sumry, seq_02_noncontam_sub_sumry)
-rm(basic_01_contamASVs, dna_01_contamASVs, seq_01_contamASVs, basic_02_contamASVs, dna_02_contamASVs, seq_02_contamASVs)
-
-## plot separately for 0.1 and 0.2 thresholds
-## plot; save as 'decontam_Reads-ASVs_ContamOrNot_sub10reads_threshold01; export at 900x900
-ggplot(data = sub_sumry %>% filter(Threshold=="0.1" & SampleType != "contaminant"), 
-       aes(x=Reads, y=Samples, color=Status, shape=SampleType)) +
-  geom_point() + 
-  theme_bw() + 
-  annotation_logticks(sides="b") +
-  scale_color_manual(values=c("firebrick", "dodgerblue2")) + 
-  scale_shape_manual(values=c(15,17,1)) +
-  scale_x_log10(labels=comma_format(accuracy = 1)) +
-  facet_wrap(Batch ~ SampleType, scales = "free_y", nrow=3) +
-  theme(legend.position = "top", legend.text = element_text(size=12), legend.title = element_blank()) +
-  labs(x="sequence counts per ASV", "Samples per ASV", 
-       subtitle = "Threshold = 0.1\nData transformed by subtracting 50 reads per-sample per-ASV")
-
-## plot; save as 'decontam_Reads-ASVs_ContamOrNot_sub50reads_threshold02; export at 900x900
-ggplot(data = sub_sumry %>% filter(Threshold=="0.2" & SampleType != "contaminant"), 
-       aes(x=Reads, y=Samples, color=Status, shape=SampleType)) +
-  geom_point() + 
-  theme_bw() + 
-  annotation_logticks(sides="b") +
-  scale_color_manual(values=c("firebrick", "dodgerblue2")) + 
-  scale_shape_manual(values=c(15,17,1)) +
-  scale_x_log10(labels=comma_format(accuracy = 1)) +
-  facet_wrap(Batch ~ SampleType, scales = "free_y", nrow=3) +
-  theme(legend.position = "top", legend.text = element_text(size=12), legend.title = element_blank()) +
-  labs(x="sequence counts per ASV", "Samples per ASV", 
-       subtitle = "Threshold = 0.1\nData transformed by subtracting 50 reads per-sample per-ASV")
-
-rm(all.prev, ASVfreq, batch_contam.table, contam_plot_sumry_sub,
-   df, dna_contamASVtaxa, psfs, psfsm, seq_contamASVtaxa, sub_02_contam.prev, sub_contam.prev,
-   sub_sumry, sub_table, sumry_sub_01, sumry_sub_02, tmp, tmp01, tmp1)
-
-rm(contamDNAplateASVs, contamSeqBatchASVs, dna_contamASVs, keepsampletypelist, nonpath,
-   selectASVlist, seq_contamASVs, basic_contam.function, batch_contam.function, commonASVcounter,
-   noncontamplotfunction, plotdatfunction, contamplotfunction, long_tmp, ASVcount_byThreshold_byGroup)
-
-########################################################################
 ########################################################################
 ## Diversity analyses to compare effect of NTC community comoposition by batch type (SeqBatch or DNAplate)
 ########################################################################
@@ -644,16 +496,17 @@ rm(contamDNAplateASVs, contamSeqBatchASVs, dna_contamASVs, keepsampletypelist, n
 
 ## See the `decontam_workflow.md` document for QIIME 2 code executed to generate the imported .qza files
 
-## Import metadata again
-metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
-metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
-metadata <- as.data.frame(metadata)
-
 ## Import PCoA artifacts from QIIME
-ds_pcoaqza_path="/Users/do/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/ds_pcoa.qza"
-bc_pcoaqza_path="/Users/do/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/bc_pcoa.qza"
-uu_pcoaqza_path="/Users/do/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/uu_pcoa.qza"
-wu_pcoaqza_path="/Users/do/Repos/nhguano/data/qiime_qza/pcoa/contam_evals/wu_pcoa.qza"
+### download directly to local machine:
+  # download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/ds_pcoa.qza', destfile = '~/Desktop/ds_pcoa.qza')
+  # download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/bc_pcoa.qza', destfile = '~/Desktop/bc_pcoa.qza')
+  # download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/uu_pcoa.qza', destfile = '~/Desktop/uu_pcoa.qza')
+  # download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/wu_pcoa.qza', destfile = '~/Desktop/wu_pcoa.qza')
+
+ds_pcoaqza_path="~/github/nhguano/data/qiime_qza/decontam_pcoa/ds_pcoa.qza"  # set path to your local machine !!!
+bc_pcoaqza_path="~/github/nhguano/data/qiime_qza/decontam_pcoa/bc_pcoa.qza"
+uu_pcoaqza_path="~/github/nhguano/data/qiime_qza/decontam_pcoa/uu_pcoa.qza"
+wu_pcoaqza_path="~/github/nhguano/data/qiime_qza/decontam_pcoa/wu_pcoa.qza"
 
 ## Function to generate plot data from PCoA qza artifacts
 pcoa2df <- function(Path, Metric){
@@ -792,13 +645,8 @@ rm(list=ls(pattern="pcoa*"))
 ## Next section is to use mock data to visualize index bleed among the 9 libraries
 ######################################################################## 
 
-## import metadata again
-metadata <- read_csv(file="~/Repos/nhguano/data/metadata/allbat_meta.csv")
-metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
-metadata <- as.data.frame(metadata)
-
-## import taxonomy again
-taxonomy <- read_delim(file="~/Repos/nhguano/data/tax/tmp.raw_bigDB_VStax_c89p97.tsv", delim="\t")
+## import taxonomy file (again)
+taxonomy <- read_delim(file="https://raw.githubusercontent.com/devonorourke/nhguano/master/data/taxonomy/tmp.raw_bigDB_VStax_c89p97.tsv", delim="\t")
 taxonomy <- taxonomy %>% separate(., 
                                   col = Taxon, 
                                   sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
@@ -807,27 +655,10 @@ taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub(".__", "", y)))
 taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub("^$|^ $", NA, y)))
 colnames(taxonomy)[1] <- "ASVid"
 
-
-## import raw seq data again
-qzapath="/Users/do/Repos/nhguano/data/qiime_qza/ASVtable/tmp.raw_table.qza"
-features <- read_qza(qzapath)
-mat.tmp <- features$data
-rm(features)
-df.tmp <- as.data.frame(mat.tmp)
-rm(mat.tmp)
-df.tmp$OTUid <- rownames(df.tmp)
-rownames(df.tmp) <- NULL
-long_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
-rm(df.tmp)
-colnames(long_df) <- c("ASVid", "SampleID", "Reads")
-long_df <- merge(long_df, metadata) %>% merge(., taxonomy)
-tmp1 <- long_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrange(-nReads) %>% mutate(ASValias=paste0("ASV-", row.names(.))) %>% select(-nReads)
-long_df <- merge(long_df, tmp1)
-
-
 ## subset mock data 
 mock <- long_df %>% filter(SampleType=="mock")
 mock$SampleID <- as.character(mock$SampleID)
+
 ## rename mock sample names for plotting clarity 
 mock$SampleID <- ifelse(mock$SampleID=="mockp1L2a", "mock_batch_1.2a", mock$SampleID)
 mock$SampleID <- ifelse(mock$SampleID=="mockp1L2b", "mock_batch_1.2b", mock$SampleID)
