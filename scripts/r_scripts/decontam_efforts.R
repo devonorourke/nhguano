@@ -23,22 +23,12 @@ metadata <- read_csv(file="https://raw.githubusercontent.com/devonorourke/nhguan
 metadata$is.neg <- ifelse(metadata$SampleType=="ncontrol", TRUE, FALSE)
 metadata <- as.data.frame(metadata)
 
-## import taxonomy file
-taxonomy <- read_delim(file="https://raw.githubusercontent.com/devonorourke/nhguano/master/data/taxonomy/tmp.raw_bigDB_VStax_c89p97.tsv", delim="\t")
-taxonomy <- taxonomy %>% separate(., 
-         col = Taxon, 
-         sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
-  select(-kingdom_name)
-taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub(".__", "", y)))
-taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub("^$|^ $", NA, y)))
-colnames(taxonomy)[1] <- "ASVid"
-
 ## create physeq metadata and taxonomy data for analyses:
 row.names(metadata) <- metadata$SampleID
 phy_meta <- sample_data(metadata)
 
 ## import ASV table; save as both physeq object (for Decontam) and long-format (for custom plotting later)
-  ## import the original ASV table (not clustered):
+## import the original ASV table (not clustered):
 ## change path below to your own path!
 # download.file(url = "https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/ASVtable/tmp.raw_table.qza",
 #               destfile = "~/Desktop/tmp.raw_table.qza")
@@ -59,10 +49,9 @@ long_df <- melt(df.tmp, id = "OTUid") %>% filter(value != 0)
 rm(df.tmp)
 colnames(long_df) <- c("ASVid", "SampleID", "Reads")
 long_df <- merge(long_df, metadata)
-long_df <- merge(long_df, taxonomy)
 tmp1 <- long_df %>% group_by(ASVid) %>%  summarise(nReads=sum(Reads)) %>% arrange(-nReads) %>% mutate(ASValias=paste0("ASV-", row.names(.))) %>% select(-nReads)
 long_df <- merge(long_df, tmp1)
-rm(tmp1, taxonomy, features)
+rm(tmp1, features)
 
 ## How rare are these ASVs anyway?
 nASVs <- long_df %>% group_by(ASVid) %>% summarise(Samples=n_distinct(SampleID)) %>% arrange(Samples)
@@ -80,8 +69,8 @@ long_df %>% group_by(SampleType, SampleID) %>% summarise(Reads=sum(Reads)) %>%
   mutate(pReads=round(Reads/sum(Reads),4) * 100) %>% 
   select(SampleType, Samples, pSamples, Reads, pReads)
 ## for all samples (could have as little as 1 read per sample!)..
-  ## 183 ncontrols make up about 6% of all samples, yet contribute just 0.43% of all reads
-  ## guano samples comprise majority of samples and sequence space
+## 183 ncontrols make up about 6% of all samples, yet contribute just 0.43% of all reads
+## guano samples comprise majority of samples and sequence space
 
 ## If we filter by requiring at least 500 reads per sample (and thus drop out any sample that had very few overall reads)..
 ## ..which would be dropped by our rarefying sampling depth regardless, how many samples/reads per SampleType now?
@@ -91,8 +80,8 @@ long_df %>% group_by(SampleType, SampleID) %>% summarise(Reads=sum(Reads)) %>% f
   mutate(pReads=round(Reads/sum(Reads),4) * 100) %>% 
   select(SampleType, Samples, pSamples, Reads, pReads)
 ## Filtering demonstrates that among those samples with at least 500 reads...
-  ## We've lost almost all of our control samples (and about 50% of guano samples!) so a read minmum disproportionately from negatives
-  ## There are fewer overall reads remaining to control samples now than before (0.37% vs 0.43%), even after removing the "low abundant" control samples
+## We've lost almost all of our control samples (and about 50% of guano samples!) so a read minmum disproportionately from negatives
+## There are fewer overall reads remaining to control samples now than before (0.37% vs 0.43%), even after removing the "low abundant" control samples
 
 
 ########################################################################
@@ -119,8 +108,8 @@ ggplot(data = df_sumry %>% filter(SampleType != "contaminant") %>% filter(Reads 
        subtitle = "Per-sample read abundances and ASV detections", caption = "Dotted line at 500 reads") +
   theme(legend.position = "top") +
   guides(label=FALSE)
-  ## here we see that the vast majority of ncontrols have less than 1000 reads; two are strikingly higher
-  ## mock communities have only a few higher than expected ASVs (~24 ASVs expected, so cross-index contam likely only minor issue)
+## here we see that the vast majority of ncontrols have less than 1000 reads; two are strikingly higher
+## mock communities have only a few higher than expected ASVs (~24 ASVs expected, so cross-index contam likely only minor issue)
 
 ## Same plot as above, but we remove any sample with fewer than 500 reads...
 ## plot; save as 'contam_eval_allSampls_Counts-ASVs_scatterplot_filt500ReadMin'; export at 600x600
@@ -141,7 +130,7 @@ ggplot(data = df_sumry %>% filter(SampleType != "contaminant") %>% filter(Reads 
   labs(x="sequence counts per Sample", y="ASVs per sample",
        subtitle = "Per-sample read abundances and ASV detections\nSamples must have at least 500 sequence counts",
        caption = "Dotted line at 500 reads\nNTC with most total sequence counts labeled")
-  
+
 rm(df_sumry)
 ########################################################################
 ## decontam function to measure ASV prevalence
@@ -223,7 +212,7 @@ length(private_SAMPbasic_ASVs_5)  ## 2,762 ASVs are not found in any negative co
 ## Finally, how many ASVs are shared between the NTCs and true samples?
 common_ASVS_NTCandSAMP <- intersect(uniqNTC_ASVs, uniqSamp_ASVs)
 length(common_ASVS_NTCandSAMP)
-  ## 382 ASVs are shared among these data types (or about 12% overall)
+## 382 ASVs are shared among these data types (or about 12% overall)
 
 rm(list = ls(pattern = "cp_basic_ASVs_*"))
 rm(list = ls(pattern = "cp_NTCbasic_ASVs_*"))
@@ -329,8 +318,8 @@ ASVcount_byThreshold_byGroup$orderer <- c(1,5,6,2,3,7,4)
 ASVcount_byThreshold_byGroup <- ASVcount_byThreshold_byGroup %>% arrange(orderer) %>% select(-orderer)
 ## plot; save as 'TableOf_ASVcounts_byThreshold_byGroup'; export at 350x300
 formattable(ASVcount_byThreshold_byGroup)
-  ## Most ASVs are shared either among all three filtering types or pairs of filtering types...
-  ## Very few ASVs are flagged as contaminants only by one filtering type (with DNAplate batch type as most)
+## Most ASVs are shared either among all three filtering types or pairs of filtering types...
+## Very few ASVs are flagged as contaminants only by one filtering type (with DNAplate batch type as most)
 
 ########################################################################
 ## decontam ASVs - figures plotting the number of samples and number of reads per SampleType and ContamType
@@ -377,12 +366,55 @@ ggplot(data = contam_plot_sumry, aes(x=Reads, y=Samples, color=Status, shape=Sam
   facet_wrap(Batch ~ SampleType, scales = "free_y", nrow=2) +
   theme(legend.position = "top", legend.text = element_text(size=12), legend.title = element_blank()) +
   labs(x="sequence counts per ASV", "Samples per ASV")
-  ## note that the biggest abundance Contamination ASVs aren't identified as likely contaminants in the SeqBatch method, but are with DNAplate method
+## note that the biggest abundance Contamination ASVs aren't identified as likely contaminants in the SeqBatch method, but are with DNAplate method
 
 ########################################################################
 ## we can also plot the decontam-style figure showing the prevaelence of ncontrol vs. samples for each batch type
 ## labeling a few of the most prevalent ASVs that are different or similar among the batch types
 ########################################################################
+
+### one way to think about prevalence: which ASVs are:
+### 1) shared among bat samples and negative control samples...
+### 2) that are in at least 10 negative control samples...
+### for each Sample Type, how many samples do we see those ASVs?
+ncontrol_ASVids <- 
+  long_df %>% 
+  filter(SampleType == 'ncontrol') %>% 
+  distinct(ASVid) %>% pull()
+
+sample_ASVids <-
+  long_df %>% 
+  filter(SampleType == 'sample') %>% 
+  distinct(ASVid) %>% pull()
+
+common_ASVids <- intersect(ncontrol_ASVids, sample_ASVids)
+
+prevalent_common_ASVids <- long_df %>% 
+  filter(ASVid %in% common_ASVids) %>% 
+  group_by(ASValias, ASVid, SampleType) %>% 
+  summarise(nSamples = n_distinct(SampleID),
+            sumReads = sum(Reads)) %>% 
+  filter(SampleType == "ncontrol") %>% 
+  filter(nSamples >= 10)
+
+prev_common_ASVs_df <- long_df %>% 
+  filter(ASVid %in% prevalent_common_ASVids$ASVid) %>% 
+  filter(SampleType != "contaminant") %>% 
+  filter(SampleType != "mock") %>% 
+  group_by(ASValias, ASVid, SampleType) %>% 
+  summarise(nSamples = n_distinct(SampleID),
+            sumReads = sum(Reads)) %>% 
+  ungroup() %>% 
+  select(ASValias, SampleType, nSamples) %>% 
+  pivot_wider(values_from = "nSamples", names_from = "SampleType", values_fill = 0) %>% 
+  arrange(-ncontrol)
+
+formattable(prev_common_ASVs_df)
+
+
+###################
+
+
 psf.pa <- transform_sample_counts(psf, function(abund) 1*(abund>0))
 psf.pa.neg <- prune_samples(sample_data(psf.pa)$is.neg == "TRUE", psf.pa)
 psf.pa.pos <- prune_samples(sample_data(psf.pa)$is.neg == "FALSE", psf.pa)
@@ -402,9 +434,9 @@ df.pa <- merge(df.pa, ASVkey)
 rm(dna.df.pa, seq.df.pa)
 
 ## generate ASV list to use for selected points
-  ## ASVs 2,5,7 are TRUE for DNAplate batch, but FALSE for SeqBatch method
-  ## ASVs 8, 14, 16 are TRUE fpr both methods
-  ## ASVs 15, 18, 20 are FALSE for both methods.
+## ASVs 2,5,7 are TRUE for DNAplate batch, but FALSE for SeqBatch method
+## ASVs 8, 14, 16 are TRUE fpr both methods
+## ASVs 15, 18, 20 are FALSE for both methods.
 selectASVlist <- paste("ASV-", c(2,5,7,8,14,15,16,18,20), sep="")
 
 ## plot scatterplot; save as 'decontam_Prevalence_ncontrolANDsample'; export at 700x700 (WARNING: changing dimensions messes with labels)
@@ -457,35 +489,18 @@ prev_plotdat$ASValias <- factor(prev_plotdat$ASValias, levels = c(
   "ASV-8", "ASV-14", "ASV-16", 
   "ASV-15", "ASV-18", "ASV-20"))
 
-p0 <- ggplot(prev_plotdat %>% filter(SampleType=="ncontrol"),
-             aes(x=SampleType, y=Reads, color=ColorMark, shape=SampleType)) +
-  geom_jitter() +
+ggplot(prev_plotdat,
+       aes(x=SampleType, y=Reads, color=ColorMark, shape=SampleType, group=SampleType)) +
+  geom_jitter(width = 0.3) +
   geom_boxplot(outlier.colour = NA, fill="white", alpha=0.5) +
-  facet_wrap( ~ ASValias, nrow = 3) +
-  scale_color_manual(values=c("darkorchid4", "firebrick", "dodgerblue2")) +
-  scale_shape_manual(values=c(15)) +
-  scale_y_continuous(trans = 'log2', labels = comma_format(accuracy = 1)) +
+  facet_grid(. ~ ASValias) +
+  scale_color_manual(values=c("darkorchid4", "firebrick", "dodgerblue2"), name ="Decontam class") +
+  scale_shape_manual(values=c(15, 1), name = "Sample type") +
+  scale_y_continuous(trans = 'log2', labels = comma_format(accuracy = 1), breaks = c(16, 512, 16384), limits = c(0.99,155000)) +
   theme_bw() +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-        legend.position="none") + 
-  labs(x="", y="sequence counts", subtitle = "Negative Control samples")
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  labs(x="", y="sequence counts")
 
-p1 <- ggplot(prev_plotdat %>% filter(SampleType=="sample"),
-             aes(x=SampleType, y=Reads, color=ColorMark, shape=SampleType)) +
-  geom_jitter() +
-  geom_boxplot(outlier.colour = NA, fill="white", alpha=0.5) +
-  facet_wrap( ~ ASValias, nrow = 3) +
-  scale_color_manual(values=c("darkorchid4", "firebrick", "dodgerblue2")) +
-  scale_shape_manual(values=c(1)) +
-  scale_y_continuous(trans = 'log2', labels = comma_format(accuracy = 1)) +
-  theme_bw() +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-        legend.position="none") + 
-  labs(x="", y="sequence counts", subtitle = "True samples")
-
-## plot faceted pairs together; save as 'decontam_selectASVabundance-perSample_contamComparison'; export at 
-ggarrange(p0, p1, labels = c("A", "B"))
-rm(p0, p1, prev_plotdat)
 
 
 ########################################################################
@@ -498,10 +513,10 @@ rm(p0, p1, prev_plotdat)
 
 ## Import PCoA artifacts from QIIME
 ### download directly to local machine:
-  # download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/ds_pcoa.qza', destfile = '~/Desktop/ds_pcoa.qza')
-  # download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/bc_pcoa.qza', destfile = '~/Desktop/bc_pcoa.qza')
-  # download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/uu_pcoa.qza', destfile = '~/Desktop/uu_pcoa.qza')
-  # download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/wu_pcoa.qza', destfile = '~/Desktop/wu_pcoa.qza')
+# download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/ds_pcoa.qza', destfile = '~/Desktop/ds_pcoa.qza')
+# download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/bc_pcoa.qza', destfile = '~/Desktop/bc_pcoa.qza')
+# download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/uu_pcoa.qza', destfile = '~/Desktop/uu_pcoa.qza')
+# download.file(url = 'https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/decontam_pcoa/wu_pcoa.qza', destfile = '~/Desktop/wu_pcoa.qza')
 
 ds_pcoaqza_path="~/github/nhguano/data/qiime_qza/decontam_pcoa/ds_pcoa.qza"  # set path to your local machine !!!
 bc_pcoaqza_path="~/github/nhguano/data/qiime_qza/decontam_pcoa/bc_pcoa.qza"
@@ -522,8 +537,8 @@ pcoa2df <- function(Path, Metric){
 
 dspd <- pcoa2df(ds_pcoaqza_path, "Dice-Sorensen")
 bcpd <- pcoa2df(bc_pcoaqza_path, "Bray-Curtis")
-uupd <- pcoa2df(uu_pcoaqza_path, "Unweighted-Unifrac")
-wupd <- pcoa2df(wu_pcoaqza_path, "Weighted-Unifrac")
+uupd <- pcoa2df(uu_pcoaqza_path, "Unweighted-UniFrac")
+wupd <- pcoa2df(wu_pcoaqza_path, "Weighted-UniFrac")
 
 allplotdat <- rbind(dspd, bcpd, uupd, wupd)
 rm(dspd, bcpd, uupd, wupd)
@@ -559,13 +574,13 @@ pcoaplot_bySeq <- function(BetaTest){
 ## collect data for each plot
 dsplot_seq <- pcoaplot_bySeq("Dice-Sorensen")
 bcplot_seq <- pcoaplot_bySeq("Bray-Curtis")
-uuplot_seq <- pcoaplot_bySeq("Unweighted-Unifrac")
-wuplot_seq <- pcoaplot_bySeq("Weighted-Unifrac")
+uuplot_seq <- pcoaplot_bySeq("Unweighted-UniFrac")
+wuplot_seq <- pcoaplot_bySeq("Weighted-UniFrac")
 
 ## plot scatterplot; save as 'contam_pcoa_4metric_bySeq'; export at 750x750
 ggarrange(dsplot_seq, bcplot_seq, uuplot_seq, wuplot_seq, 
           common.legend = TRUE, ncol = 2, nrow=2, labels = c("A", "B", "C", "D"))
-  ## pretty clear from the weighted unifrac estimate that our NTCs are as likely to be in any SeqBatch as any other
+## pretty clear from the weighted unifrac estimate that our NTCs are as likely to be in any SeqBatch as any other
 
 ########################################################################
 ## Next plot will group by DNAplate 
@@ -590,14 +605,14 @@ pcoaplot_byDNA <- function(BetaTest){
 ## collect data for each plot
 dsplot_dna <- pcoaplot_byDNA("Dice-Sorensen")
 bcplot_dna <- pcoaplot_byDNA("Bray-Curtis")
-uuplot_dna <- pcoaplot_byDNA("Unweighted-Unifrac")
-wuplot_dna <- pcoaplot_byDNA("Weighted-Unifrac")
+uuplot_dna <- pcoaplot_byDNA("Unweighted-UniFrac")
+wuplot_dna <- pcoaplot_byDNA("Weighted-UniFrac")
 
 ## plot scatterplot; save as 'contam_pcoa_4metric_byDNA'; export at 750x750
 ggarrange(dsplot_dna, bcplot_dna, uuplot_dna, wuplot_dna, 
           common.legend = TRUE,
           ncol = 2, nrow=2, labels = c("A", "B", "C", "D"))
-  ## here we find that DNAplates tend to be associated for unweighted abundance metrics (low abundnace reads are driving similarities)
+## here we find that DNAplates tend to be associated for unweighted abundance metrics (low abundnace reads are driving similarities)
 ##
 
 ######################################################################
@@ -630,7 +645,7 @@ wuplot_dnawell <- pcoaplot_byDNAwell("Weighted-Unifrac")
 ggarrange(dsplot_dnawell, bcplot_dnawell, uuplot_dnawell, wuplot_dnawell, 
           common.legend = TRUE,
           ncol = 2, nrow=2, labels = c("A", "B", "C", "D"))
-  ## in this case, we see that the ncontrol wells don't correlate with surrounding wells 
+## in this case, we see that the ncontrol wells don't correlate with surrounding wells 
 
 
 ## clenaup:
@@ -644,16 +659,6 @@ rm(list=ls(pattern="pcoa*"))
 ######################################################################
 ## Next section is to use mock data to visualize index bleed among the 9 libraries
 ######################################################################## 
-
-## import taxonomy file (again)
-taxonomy <- read_delim(file="https://raw.githubusercontent.com/devonorourke/nhguano/master/data/taxonomy/tmp.raw_bigDB_VStax_c89p97.tsv", delim="\t")
-taxonomy <- taxonomy %>% separate(., 
-                                  col = Taxon, 
-                                  sep=';', into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name")) %>% 
-  select(-kingdom_name)
-taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub(".__", "", y)))
-taxonomy <- as.data.frame(apply(taxonomy, 2, function(y) gsub("^$|^ $", NA, y)))
-colnames(taxonomy)[1] <- "ASVid"
 
 ## subset mock data 
 mock <- long_df %>% filter(SampleType=="mock")
@@ -673,16 +678,18 @@ mock$SampleID <- ifelse(mock$SampleID=="mockIM4p7L2", "mock_batch_7.2", mock$Sam
 
 ## add in the "expected" or "unexpected" mock seq
 ### download to local machine:
-  #download.file(url='https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/mock/mock.expectSeqs.qza', destfile = '~/Desktop/mock.expectSeqs.qza')
-  #download.file(url='https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/mock/mock.notexpectSeqs.qza', destfile = '~/Desktop/mock.notexpectSeqs.qza')
+#download.file(url='https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/mock/mock.expectSeqs.qza', destfile = '~/Desktop/mock.expectSeqs.qza')
+#download.file(url='https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/mock/mock.notexpectSeqs.qza', destfile = '~/Desktop/mock.notexpectSeqs.qza')
 
 expect_mockqza <- read_qza(file='~/github/nhguano/data/qiime_qza/mock/mock.expectSeqs.qza') ## set your path!!
 expect_mockseqs <- data.frame(expect_mockqza$data) %>% mutate(ASVid=row.names(.)) %>% pull(ASVid) %>% unique()
 length(expect_mockseqs)
-  ## 374 seqs fit within 98% identity and 97% query coverage
+## 374 seqs fit within 98% identity and 97% query coverage
+
 notexpect_mockqza <- read_qza(file='~/github/nhguano/data/qiime_qza/mock/mock.notexpectSeqs.qza') ## set your path!!!
 notexpect_mockseqs <- data.frame(notexpect_mockqza$data) %>% mutate(ASVid=row.names(.)) %>% pull(ASVid) %>% unique()
-length(notexpect_mockseqs)  ## 10,423 don't fit this criteria !
+length(notexpect_mockseqs)  
+## 10,423 don't fit this criteria !
 
 ## Use the ASVid names in the `expect_mockseqs` to classify a mock ASVid as mock expected or not
 mock$MockASV <- ifelse(mock$ASVid %in% expect_mockseqs, TRUE, FALSE)
@@ -707,160 +714,3 @@ write_delim(prevalent_ASVs, file="~/github/nhguano/data/fasta/test_prevalentMock
 
 rm(prevalent_ASVs, prevalent_ASVs_df, mmockexpectqza, expect_mockqza, bigmockASVs, notexpect_mockseqs, notexpect_mockqza,
    mockexpectqza, mock, p3L2asvs, qzapath, expect_mockseqs, expectseqs, oroList)
-########################################################################
-###############################################################################
-##########################################################################################
-## We have now filtered out all mock samples and negative control samples from the dataset 
-## Next steps are to identiby bat host sequences
-## Code executed described in the last section of the `decontam_workflow.md` document 
-##########################################################################################
-##############################################################################
-########################################################################
-
-## read in each .tsv file from the three classification approaches
-tax_filter_function <- function(urlpath, Classifier){
-  tmp <- read_delim(file = urlpath, delim="\t")
-  tmp2 <- tmp %>% separate(., col = Taxon,
-                   into = c("kingdom_name", "phylum_name", "class_name", "order_name", "family_name", "genus_name", "species_name"),
-                   sep=';') %>% 
-    filter(order_name == "o__Chiroptera" | order_name=="Chiroptera") %>% 
-    select(-kingdom_name, -Confidence) %>% 
-    mutate(Classifyr=Classifier)
-  tmp2 <- as.data.frame(apply(tmp2, 2, function(y) gsub(".__", "", y)))
-  tmp2 <- as.data.frame(apply(tmp2, 2, function(y) gsub("^$|^ $", NA, y)))
-  colnames(tmp2)[1] <- "ASVid"
-  tmp2
-}
-
-vs_host_db_path <- "https://raw.githubusercontent.com/devonorourke/nhguano/master/data/taxonomy/tmp.raw_hostDB_VStax_c89p97.tsv.gz"
-vs_big_db_path <- "https://raw.githubusercontent.com/devonorourke/nhguano/master/data/taxonomy/tmp.raw_bigDB_VStax_c89p97.tsv"
-nb_big_db_path <- "https://raw.githubusercontent.com/devonorourke/nhguano/master/data/taxonomy/tmp.raw_bigDB_NBtax.tsv"
-
-vs_hostDB_df <- tax_filter_function(vs_host_db_path, "vs_hostDB")
-vs_bigDB_df <- tax_filter_function(vs_big_db_path, "vs_bigDB")
-nb_bigDB_df <- tax_filter_function(nb_big_db_path, "nb_bigDB")
-
-## How many reads per each ASV identified by the classifiers in the dataset? Broken down by SampleType.
-NHstudylist <- c("oro15", "oro16")
-
-## hostDB, VSEARCH method
-long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% vs_hostDB_df$ASVid & SampleType == "sample") %>% 
-  group_by(SampleType, StudyID) %>% 
-  summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
-    ## found just 3 samples total, 3 ASVs, combining for a measly 10 total reads. basically nothing!
-
-## bigDB, VSEARCH method
-long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% vs_bigDB_df$ASVid & SampleType == "sample") %>% 
-  group_by(SampleType, StudyID) %>% 
-  summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
-    ## 59 samples from 2015, 540 samples from 2016. way more than the host DB method.
-    ## 1,657,573 total reads (about 6.2% of all data)
-
-## bigDB, Naive Bayes method
-long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% nb_bigDB_df$ASVid & SampleType == "sample") %>% 
-  group_by(SampleType, StudyID) %>% 
-  summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
-    ## same number of samples as VSEARCH method above, but more reads (2 more ASVs)
-    ## 1,657,580 (just 7 more reads, so additional 1 ASV isn't particularly important)
-
-## How many unique ASVs for each bigDB classifier method?
-long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% vs_bigDB_df$ASVid & SampleType == "sample") %>% 
-  group_by(SampleType) %>% summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
-  ## 27 for VSEARCH/bigDB
-long_df %>% filter(StudyID %in% NHstudylist & ASVid %in% nb_bigDB_df$ASVid & SampleType == "sample") %>% 
-  group_by(SampleType) %>% summarise(nReads=sum(Reads), nSamples=n_distinct(SampleID), nASVs=n_distinct(ASVid))
-  ## 28 for Naive Bayes/bigDB
-
-## Add in taxonomy information to each dataset, and figure out what proportion of the reads are going to what species 
-## for the bigDB VSEARCH approach
-merge(vs_bigDB_df, long_df, all.x=TRUE) %>% 
-  filter(StudyID %in% NHstudylist & SampleType == "sample") %>% 
-  group_by(species_name) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
-  ## wow. basically everything is coming up Myotis lucifugus. just a trace amount of other bat hosts
-
-merge(nb_bigDB_df, long_df, all.x=TRUE) %>% 
-  filter(StudyID %in% NHstudylist & SampleType == "sample") %>% 
-  group_by(species_name) %>% 
-  summarise(Samples=n_distinct(SampleID), Reads=sum(Reads))
-  ## same story. it's clearly all MYLU, with these other bats probably in there as super minor contaminants. getting rid of all of them.
-
-
-################################################################################
-## the same dataset was classified using either:
-# A. VSEARCH (97% identity, 94% coverage)
-# B. Naive Bayes classifier (default settings in QIIME 2)
-
-## First two plots explore:
-#1. How often do the two classifiers agree (same taxon name per level for each ASV)
-#2. How often do the two classifiers assign some information or not (per ASV, per taxon level)
-################################################################################
-
-## import ASValias values used in inital plots (keeping consistent with earlier plots in decontam work)
-asvkey <- read_csv(file="https://raw.githubusercontent.com/devonorourke/nhguano/master/data/fasta/asvkey_allASVs.csv")
-
-## import VSEARCH taxonomy
-vstaxa <- read_delim(file="https://github.com/devonorourke/nhguano/raw/master/data/taxonomy/tmp.raw_bigDB_VStax_c94p97.tsv.gz", delim="\t")
-vstaxa <- vstaxa %>% separate(., col = Taxon, 
-                              sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
-vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub(".__", "", y)))
-vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("^$|^ $", NA, y)))
-vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
-vstaxa <- as.data.frame(apply(vstaxa, 2, function(y) gsub("Unassigned", NA, y)))
-colnames(vstaxa)[1] <- "ASVid"
-vstaxa <- merge(vstaxa, asvkey)
-
-## import Naive Bayes taxonomy
-nbtaxa <- read_delim(file="https://github.com/devonorourke/nhguano/raw/master/data/taxonomy/tmp.raw_bigDB_NBtax.tsv.gz", delim="\t")
-nbtaxa <- nbtaxa %>% separate(., col = Taxon, 
-                              sep=';', into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
-nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub(".__", "", y)))
-nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("^$|^ $", NA, y)))
-nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Ambiguous_taxa", NA, y)))
-nbtaxa <- as.data.frame(apply(nbtaxa, 2, function(y) gsub("Unassigned", NA, y)))
-colnames(nbtaxa)[1] <- "ASVid"
-nbtaxa <- merge(nbtaxa, asvkey)
-
-rm(asvkey)
-## common and different values per level:
-matchfunction <- function(TaxonLevel){
-  vstmp <- vstaxa %>% select(ASVid, TaxonLevel) %>% filter(complete.cases(.)) %>% unite(., "vsinput", c("ASVid", TaxonLevel)) %>% pull(vsinput)
-  nbtmp <- nbtaxa %>% select(ASVid, TaxonLevel) %>% filter(complete.cases(.)) %>% unite(., "nbinput", c("ASVid", TaxonLevel)) %>% pull(nbinput)
-  Match <- length(intersect(vstmp, nbtmp))
-  Diff <- length(setdiff(vstmp, nbtmp))
-  data.frame(TaxonLevel, Match, Diff)
-}
-
-## table calculating number of times they disagree/match, but note that these are ignoring comparisons where one might be NA
-CompTable <- rbind(matchfunction("Kingdom"), matchfunction("Phylum"), matchfunction("Class"),
-                   matchfunction("Order"), matchfunction("Family"), matchfunction("Genus"), matchfunction("Species"))
-
-formattable(CompTable)
-
-## how often does a classifier assign a name or not?
-emptyfunction <- function(TaxonLevel){
-  vstmp <- vstaxa %>% select(ASVid, TaxonLevel) %>% rename(vtax=TaxonLevel) 
-  nbtmp <- nbtaxa %>% select(ASVid, TaxonLevel) %>% rename(ntax=TaxonLevel)
-  alltmp <- merge(vstmp, nbtmp)
-  alltmp$Status <- ""
-  alltmp$Status <- ifelse(is.na(alltmp$vtax) & is.na(alltmp$ntax), "both missing", alltmp$Status)
-  alltmp$Status <- ifelse(is.na(alltmp$vtax) & !is.na(alltmp$ntax), "vsearch missing only", alltmp$Status)
-  alltmp$Status <- ifelse(!is.na(alltmp$vtax) & is.na(alltmp$ntax), "nbayes missing only", alltmp$Status)
-  alltmp$Status <- ifelse(!is.na(alltmp$vtax) & !is.na(alltmp$ntax), "neither missing", alltmp$Status)
-  alltmp %>% group_by(Status) %>% tally() %>% spread(Status, n) %>% mutate(Level=TaxonLevel)
-}
-
-EmptyTable <- rbind(emptyfunction("Phylum"), emptyfunction("Class"),emptyfunction("Order"), 
-                    emptyfunction("Family"), emptyfunction("Genus"), emptyfunction("Species"))
-EmptyTable <- EmptyTable %>% select(Level, `both missing`, `neither missing`, `nbayes missing only`, `vsearch missing only`)
-tmpk <- data.frame(emptyfunction("Kingdom"), "nbayes missing only"=0)
-colnames(tmpk) <- c("both missing", "neither missing", "vsearch missing only", "Level", "nbayes missing only")
-tmpk <- tmpk %>% select(Level, `both missing`, `neither missing`, `nbayes missing only`, `vsearch missing only`)
-EmptyTable <- rbind(tmpk, EmptyTable)
-
-## plot table as image; save as 'taxcomp_missingStatus'; export at 650x350
-formattable(EmptyTable, 
-            caption="Instances where one or both classifiers do not assign name to an ASV")
-
-rm(CompTable, EmptyTable, tmpk)
-
