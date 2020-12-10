@@ -1,6 +1,6 @@
 
 # Overview
-We initially processed all samples following steps described in the [sequence_processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document, and performed a detailed analysis of potential contamination among negative control and positive control samples as outlined in the [decontam_workflow](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md) file. The final ASV table had been filtered to remove both bat (host) DNA and non-arthropod sequence variants.
+We initially processed all samples following steps described in the [sequence_processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document, and evaluated potential sources of contamination among negative control and positive control samples as outlined in the [contamination workflow](https://github.com/devonorourke/nhguano/blob/master/docs/contamination_evaluation.md) file. 
 
 # Determining sampling depth for normalization
 Because the previous filtering regime did not remove samples with low read abundances (any samples with >= 1 read were retained) we're going to first determine how the sampling depth will effect the number of samples retained, the overall richness of the dataset, and the per-sample richness.
