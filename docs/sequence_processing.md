@@ -81,7 +81,8 @@ qiime metadata tabulate \
 --m-input-file "$LIB".denoisingStats.qza --o-visualization "$LIB".denoisingStats.qzv  
 ```
 
-Note that the DADA2-summary visualization files are [available here](https://github.com/devonorourke/nhguano/tree/master/data/qiime_qzv/dada2_sumry).  
+- DADA2-summary visualization files are [available here](https://github.com/devonorourke/nhguano/tree/master/data/qiime_qzv/dada2_sumry)  
+- DADA2-summary stat files are [available here](https://github.com/devonorourke/nhguano/tree/master/data/qiime_qza/dada2_denoisingStats)  
 
 ## Combining DADA2 datasets
 Because each library was separately processed in DADA2 we combined all ASV table and representative sequence `.qza` file into a single pair of artifacts:
@@ -105,7 +106,12 @@ qiime feature-table merge-seqs --i-data "$PFX"/lib12/p12.raw_repSeqs.qza \
   --o-merged-data tmp.raw_repSeqs.qza
 ```
 
-The `.qza` files are available for both the ASV-table ([here](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza)) and fasta files ([here](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/repSeqs/all.raw_repSeqs.qza)) (though note these are `.qza` files that need to be exported to be viewed as traditional text files).
+The `.qza` files for ASV data:
+- ASV table: [tmp.raw_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza) 
+- ASV sequence: [tmp.raw_repSeqs.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/repSeqs/tmp.raw_repSeqs.qza)
+
+In addition, the fasta file is exported in a traditional text format:
+- ASV sequence (text): [allSamps_ASVseqs.fasta.gz](https://github.com/devonorourke/nhguano/blob/master/data/text_tables/asv_data/allSamps_ASVseqs.fasta.gz)
 
 ## Next steps in analysis
 1. The `tmp.raw_table.qza` file served as input into the contamination overview outlined in the [decontam workflow document](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md). That analysis included evaluating sequence variants for potential wet-bench cross contamination and sequencing platform contamination. 
