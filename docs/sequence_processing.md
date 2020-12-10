@@ -81,7 +81,7 @@ qiime metadata tabulate \
 --m-input-file "$LIB".denoisingStats.qza --o-visualization "$LIB".denoisingStats.qzv  
 ```
 
-- DADA2-summary visualization files are [available here](https://github.com/devonorourke/nhguano/tree/master/data/qiime_qzv/dada2_sumry)  
+- DADA2-summary visualization files are [available here](https://github.com/devonorourke/nhguano/tree/master/data/qiime_qzv/dada_sumry)  
 - DADA2-summary stat files are [available here](https://github.com/devonorourke/nhguano/tree/master/data/qiime_qza/dada2_denoisingStats)  
 
 ## Combining DADA2 datasets
