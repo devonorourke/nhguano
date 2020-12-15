@@ -1,103 +1,92 @@
-
 # Overview
-We initially processed all samples following steps described in the [sequence_processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document, and evaluated potential sources of contamination among negative control and positive control samples as outlined in the [contamination workflow](https://github.com/devonorourke/nhguano/blob/master/docs/contamination_evaluation.md) file. 
+We initially processed all samples following steps described in the [Sequence Processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document, and evaluated potential sources of contamination among negative control and positive control samples as outlined in the [contamination workflow](https://github.com/devonorourke/nhguano/blob/master/docs/contamination_evaluation.md) file. We determined that ASVs specific to the mock community were to be removed from this dataset, while both positive and negative control are also to be discarded. This document outlines the remaining sequence processing leading into the diversity investigations, as well as brief summaries of the various components of the diversity work itself. Notably, within those brief summaries are links to the outputs of these steps (though all data produced is available within various directories in this repository).
 
-# Determining sampling depth for normalization
-Because the previous filtering regime did not remove samples with low read abundances (any samples with >= 1 read were retained) we're going to first determine how the sampling depth will effect the number of samples retained, the overall richness of the dataset, and the per-sample richness.
-> `$TABLE` refers to the final taxonomy-filtered [ASV table](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_arthOnly_table.qza) produced at the conclusion of the [decontam_workflow](https://github.com/devonorourke/nhguano/blob/master/docs/decontam_workflow.md) document
-> `$NHMETA` refers to the [qiime_NHbat_meta.tsv](https://github.com/devonorourke/nhguano/data/metadata/qiime_NHbat_meta.tsv) metadata file
+The work presented herein:
+1. Clustering representative sequences (ASVs) into representative clusters (OTUs)
+2. Classifying OTUs
+3. Identifying bat host species among samples
+4. Filtering OTUs to retain only arthropod-specific diet components
+5. Diversity analysis summaries
 
-```
-## generating summary table
-qiime feature-table summarize \
---i-table $TABLE --o-visualization sampleOnly.summaryTable.qzv --m-sample-metadata-file $NHMETA
+> The R script [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) was used to tie together some of the outputs from steps 1-4 above. Likewise, the [diversityAnalyses.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/diversityAnalyses.R) R script was used to complete almost all sections of step 5 for the diversity analysis summaries. Additional R scripts are noted when appropriate for each of these steps in the following sections.
 
-## bootstrap estimates of richness per sample across a range of sampling depths
-qiime diversity alpha-rarefaction \
-  --i-table $TABLE --o-visualization sampleOnly.alphaRareViz.qzv --m-metadata-file $NHMETA \
-  --p-metrics observed_otus --p-min-depth 500 --p-max-depth 5000 --p-iterations 15
-```
+# Clustering representative sequences (ASVs) into representative clusters (OTUs)
+We clustered the exact sequence variants ([tmp.raw_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza), produced at the end of the [Sequence Processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document) into representative sequence clusters. Our previous work with this and other bat diet datasets had shown that many ASVs often were assigned the exact same taxonomic information, which tends to increase the species richness estimates, and can lead to differences in community composition between groups when there likely is none (in our opinion, a bat doesn't know the differences between June bugs with a 1 base pair difference in their COI sequence). Clustering certainly reduces these diversity estimates, and may hide potential group differences, but this more conservative approach was a tradeoff we felt appropriate for our questions motivated by bat diet differences in space and time: if OTUs were different (rather than ASVs) it is very likely those differences are meaningful in terms of the kinds of taxa being detected.  
 
-We used the [sampleOnly.summaryTable.qzv](https://github.com/devonorourke/nhguano/data/qiime_qzv/table_sumry/sampleOnly.summaryTable.qzv) summary visualization to determine how the sampling depth would influence the number of samples that would be retained for different variables like sampling sites and weeks. This table demonstrates the tradeoff we expected: because we pooled hundreds of samples on a single MiSeq run the average read depth per sample is low (per sample sequencing counts median = 400), but there are hundreds of samples with thousands of reads. Because we are not particularly concerned with rare variants or low abundance taxa and instead are more interested in retaining as many samples per group as possible, we sought to find a sampling depth that preserved a balance between retaining as many samples as possible at a point where observed ASV richness began to plateau on the alpha rarefaction curve. The [sampleOnly.alphaRareViz.qzv](https://github.com/devonorourke/nhguano/data/qiime_qzv/alpha_viz/sampleOnly.alphaRareViz.qzv) visualization suggests that a relatively low sampling depth between 1000-2000 reads will retain most of the observed variation among all but a few sites (one site, EPS (Epsom, NH) had far more diversity than other samples); importantly this range of sampling depth will preserve many of our samples. Samples were then rarefied to our selected sampling depth of 1000 reads.
+Because QIIME 2 did not have the functionality to cluster ASVs into OTUs using abundance information _and_ produce a temporary `.uc` file as output, we had to perform a little bit of reformatting to run VSEARCH manually. This involved exporting the ASV table, generating a plain text fasta file with abundance information (per ASV), then clustering with VSEARCH and generating a `.uc` file that identified the ASV to the group Centroid (OTU). That `.uc` file was then used in the [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) script to aggregate the raw reads from each ASV per sample into OTUs per sample. This process worked as follows:
+
+First, we applied an R script [/addingAbundanceInfoToDerepASVfasta.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/addingAbundanceInfoToDerepASVfasta.R) to read in the asv table QIIME object [tmp.raw_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza), then aggregate the reads per ASV. This resulted in a tab-separated file, [allSamps_ASVseqs_wSizes.csv.gz](https://github.com/devonorourke/nhguano/blob/master/data/text_tables/asv_data/allSamps_ASVseqs_wSizes.csv.gz), which served as the input to modify to create a fasta file for VSEARCH clustering. Because it was a column-based format instead of the traditional fasta file, we modified that file as follows:
 
 ```
-qiime feature-table rarefy \
-  --i-table $TABLE \
-  --p-sampling-depth 1000 \
-  --o-rarefied-table sampleOnly_rfyd_table.qza
+zcat allSamps_ASVseqs_wSizes.csv.gz | \
+awk 'NR > 1 {print $0}' | tr ',' '\n' | gzip \
+> allSamps_ASVseqs_wSizes.fasta.gz
 ```
 
-The rarefied table ([sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza)) is used next to calculate estimates of diversity.
-
-# Alpha diversity estimates
-
-We explored three estimates of within sample ASV diversity: richness (observed ASVs), Shannon's entropy, and Faith's phylogenetic diversity.
-`$TREE` refers to the rooted tree file ([raw.ASVtree_rooted.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/trees)) created previously in the `decontam workflow` document
-`$TABLE` refers to the rarefied ASV table ([sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza))
-
+The [allSamps_ASVseqs_wSizes.fasta.gz](https://github.com/devonorourke/nhguano/blob/master/data/text_tables/asv_data/allSamps_ASVseqs_wSizes.fasta.gz) file then served as input into VSEARCH to cluster at a 98.5% identity. To collapse ASVs into OTUs and generate the `.uc` file:
 ```
-qiime diversity alpha-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric faith_pd --o-alpha-diversity alpha.vals_fp.qza
-qiime diversity alpha --i-table "$TABLE" --p-metric observed_otus --o-alpha-diversity alpha.vals_ob.qza
-qiime diversity alpha --i-table "$TABLE" --p-metric shannon --o-alpha-diversity alpha.vals_sh.qza
+vsearch --cluster_size allSamps_ASVseqs_wSizes.fasta.gz \
+--id 0.985 --qmask none --xsize --threads 10 --minseqlength 1 --fasta_width 0 \
+--centroids allSamps_clustered_p985.fasta \
+--uc allSamps_clustered_p985.uc
+
+gzip *.uc
 ```
 
-All `alpha.vals*qza` artifacts are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/alpha). We partitioned our analyses to focus on particular 2016 sites that contained the greatest proportion of samples across that years sampling dates (April to October). These `.qza` files input to the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script produce the tables and figures presented in this manuscript.
+This produced the , which served as input to the [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) script to collapse each ASV into it's proper OTU (and aggregate read counts).  
 
+Next, we applied the [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) R script to first aggregate the sequence count information within the [tmp.raw_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza) ASV table into an OTU table using the [allSamps_clustered_p985.uc.gz](https://github.com/devonorourke/nhguano/tree/master/data/ucfile/allSamps_clustered_p985.uc.gz) file.  In that same R script, we next removed mock community samples, exact mock community ASVs, and negative control samples. The next step was to identify which OTUs were associated with bat diet (we restricted those OTUs classified to arthropods with at least family-level information), and which OTUs were likely derived from a bat host. This required classifying each OTU, explained in the next section.
 
-# Beta diversity estimates
+# Classifying OTUs and filtering samples
+## Database development
+Representative sequences were classified using a custom database curated with reference sequences and taxonomic information obtained from the Barcode of Life Database ([BOLD](https://v4.boldsystems.org/index.php)), and used in an earlier study [Robeson et al., in press 2020](https://www.biorxiv.org/content/10.1101/2020.10.05.326504v1.full). We relied in particular on a series of tools available in the [RESCRIPt](https://github.com/bokulich-lab/RESCRIPt) QIIME 2 plugin to filter the raw reference sequences, as well as [Seqkit](https://github.com/shenwei356/seqkit). Briefly, we first obtained the BOLD COI sequences using a custom R script, [bold_datapull_byGroup.R](https://github.com/devonorourke/COIdatabases/blob/master/scripts/bold_datapull_byGroup.R), which queried the BOLD API using the ['bold'](https://github.com/ropensci/bold) R package. Reference sequences were filtered for nucleotide ambiguity and homopolymer runs (no more than 5 degenerate bases per sequence or 12 homopolymers) with 'qiime rescript cull-seqs' and length (min 250 bp max 1600 bp) with 'qiime rescript filter-seqs-length', and dereplicated by applying a Least Common Ancestor method that gave preference to sequences represented most frequently with 'qiime rescript dereplicate --p-mode 'super' --p-derep-prefix'. Remaining sequences were trimmed to boundaries defined by our COI primer sequences by performing multiple sequence alignment of reference and primer sequences [MAFFT](https://mafft.cbrc.jp/alignment/software/). The remaining primer-trimmed, nucleotide quality and length-filtered references were once more filtered and gaps removed with 'qiime rescript degap-seqs' (retaining only reference sequences with a minimum length of 170 bp), then dereplicated a second time with the same LCA method used earlier with 'qiime rescript dereplicate'. The final database consists of 739,345 unique COI reference sequences and taxonomic labels.
 
-We compared community composition for just a select set of 2016 sites that were the most heavily sampled. This required filtering the original rarefied table to include only those samples that were present in these selected sites (see the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script for details).
-> `$STUDY1META` refers to the select list of samples filtered in the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script that pertain to nine sites from 2016: the [alpha_study1names.txt](https://github.com/devonorourke/nhguano/data/metadata/alpha_study1names.txt) file
-> `$RARETABLE` refers to the original rarefied table: [sampleOnly_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_rfyd_table.qza)
+The workflow is fully detailed in a QIIME 2 forum post [available here](https://forum.qiime2.org/t/building-a-coi-database-from-bold-references), with all supporting scripts made available in a separate GitHub repository, [COIdatabases](https://github.com/devonorourke/COIdatabases). Database files are hosted through Open Science Framework in this [project folder](https://osf.io/d4jra/).  
 
+## Training a naive Bayes classifier
+We used a hybrid approach in classifying representative sequences, prioritizing exact matches from VSEARCH first, then retaining Naive Bayes classifications with sufficient information. We first trained the Naive Bayes classifier required to assign taxonomic information to representative sequences with the RESCRIPt command 'qiime rescript evaluate-fit-classifier', producing the QIIME object required for Naive Bayes classification. The sequence (bold_anml_seqs.qza) and taxonomy (bold_anml_taxa.qza) artifacts used as inputs in classifier training are available via Open Science Framework in this [project folder](https://osf.io/d4jra/), as is the 'bold_anml_classifier.qza' classifier object used as input for classifying the representative sequences in the next step of the workflow:
 ```
-qiime feature-table filter-samples \
---i-table "$RARETABLE" --m-metadata-file "$STUDY1META" --o-filtered-table sampleOnly_select2016_rfyd_table.qza
+qiime rescript evaluate-fit-classifier \
+  --i-sequences bold_anml_seqs.qza \
+  --i-taxonomy bold_anml_taxa.qza \
+  --p-reads-per-batch 6000 \
+  --p-n-jobs 6 \
+  --output-dir fitClassifier_boldANML
 ```
+> The `bold_anml_classifier.qza` file is contained within the `fitClassifier_boldANML` output directory and is used in NBayes classification next.
 
-We calculated distances among samples four metrics:
-- Dice-Sorensen (unweighted abundance, unweighted phylogenetic)  
-- Bray-Curtis (weighted abundance, unweighted phylogenetic)  
-- Unweighted Unifrac (unweighted abundance, weighted phylogenetic)  
-- Weighted Unifrac (weighted abundance, weighted phylogenetic)  
+## Classifying representative sequences
 
-The following code was executed to generate the distance matrices:
-> `$TABLE` refers to the sample-filtered, rarefied ASV table ([sampleOnly_select2016_rfyd_table.qza](https://github.com/devonorourke/nhguano/data/qiime_qza/ASVtable/sampleOnly_select2016_rfyd_table.qza))
-
+ASV sequences were classified using VSEARCH and naive Bayes separately. For VSEARCH, we required 100% identity across 94% query coverage as follows:
 ```
-## distance estimates
-qiime diversity beta-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric unweighted_unifrac --o-distance-matrix s16_dist_uu.qza
-qiime diversity beta-phylogenetic --i-table "$TABLE" --i-phylogeny "$TREE" --p-metric weighted_unifrac --o-distance-matrix s16_dist_wu.qza
-qiime diversity beta --i-table "$TABLE" --p-metric dice --o-distance-matrix s16_dist_ds.qza
-qiime diversity beta --i-table "$TABLE" --p-metric braycurtis --o-distance-matrix s16_dist_bc.qza
-```
-
-We then applied a Principal Correspondence Analysis for each distance matrix:  
-```
-## pcoa
-qiime diversity pcoa --i-distance-matrix s16_dist_uu.qza --o-pcoa s16_pcoa_uu.qza.qza
-qiime diversity pcoa --i-distance-matrix s16_dist_wu.qza --o-pcoa s16_pcoa_wu.qza.qza
-qiime diversity pcoa --i-distance-matrix s16_dist_ds.qza --o-pcoa s16_pcoa_ds.qza.qza
-qiime diversity pcoa --i-distance-matrix s16_dist_bc.qza --o-pcoa s16_pcoa_bc.qza.qza
+qiime feature-classifier classify-consensus-vsearch \
+   --i-query tmp.raw_repSeqs.qza \
+   --o-classification allASVs_VSp100c94_taxa.qza \
+   --i-reference-reads bold_anml_seqs.qza \
+   --i-reference-taxonomy bold_anml_taxa.qza \
+   --p-perc-identity 1.0 --p-query-cov 0.94 --p-strand both --p-threads 20 --verbose
 ```
 
-All distance metrics are available at [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/distmat/select2016), while all PCoA artifacts are [available here](https://github.com/devonorourke/nhguano/data/qiime_qza/pcoa/select2016).  
-
-
-# Biplots
-To create the biplots we first created a compositional data table using the rarefied reads as input. We selected just the weighted Unifrac PCoA artifact as input because it the largest fraction of variation of the data in the first two principal component axes than the other three distance metrics. The output of the biplot function was used to generate the figure created in the [NH_diversity.R](https://github.com/devonorourke/nhguano/scripts/r_scripts/NH_diversity.R) script:
-
+Default parameters were used for naive Bayes classification:
 ```
-## convert select 2016 rarefied table to relative frequency table
-qiime feature-table relative-frequency \
---i-table sampleOnly_select2016_rfyd_table.qza
---o-relative-frequency-table sampleOnly_select2016_rfyd_relfreq_table.qza
-
-## run biplot function
-qiime diversity pcoa-biplot \
---i-pcoa s16_pcoa_wu.qza.qza \
---i-features sampleOnly_select2016_rfyd_relfreq_table.qza \
---o-biplot s16_pcoabiplot_wu.qza
+qiime feature-classifier classify-sklearn \
+  --i-reads tmp.raw_repSeqs.qza \
+  --i-classifier bold_anml_classifier.qza \
+  --p-n-jobs 1 --p-reads-per-batch 2000 \
+  --o-classification allASVs_NB_taxa.qza
 ```
 
-The [s16_pcoabiplot_wu.qza] artifact is available in [this directory](https://github.com/devonorourke/nhguano/data/qiime_qza/biplots).
+Both the VSEARCH and Naive Bayes representative sequence taxonomic information outputs, [allASVs_VSp100c94_taxa.qza](https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/taxonomy/allASVs_VSp100c94_taxa.qza) and [allASVs_NB_taxa.qza](https://github.com/devonorourke/nhguano/raw/master/data/qiime_qza/taxonomy/allASVs_NB_taxa.qza), respectively, were exported as .tsv files (available as [allASVs_VS_taxa.tsv.g](https://github.com/devonorourke/nhguano/raw/master/data/taxonomy/allASVs_VS_taxa.tsv.gz) and [allASVs_NB_taxa.tsv.gz](https://github.com/devonorourke/nhguano/raw/master/data/taxonomy/allASVs_NB_taxa.tsv.gz)). These files were used as inputs in the [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) script, to filter remaining ASVs (focusing on only the centroids after clustering at 98.5%, called "OTUs" hereafter) for a minimum amount of taxonomic information.
+
+## Filtering data for bat and arthropod-specific representative sequences
+All filtering took place within the [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) script. A brief summary of these actions and their resulting outputs are highlighted below:
+
+- Sequence counts per ASV per sample were aggregated for representative centroids (OTUs) - see [allSamples_OTUtable_long.csv.gz](https://github.com/devonorourke/nhguano/raw/master/data/text_tables/otu_tables/allSamples_OTUtable_long.csv.gz).
+- Mock-specific ASVs were removed from the dataset; these particular sequences are listed in the file ['prevalentMockASVs.txt.gz'](https://raw.githubusercontent.com/devonorourke/nhguano/master/data/fasta/prevalentMockASVs.txt.gz). In addition, only New Hampshire guano samples were retained (thus dropping negative and positive control samples).
+- All bat-associated sequences classified were identified separately with naive Bayes and VSEARCH, with both read abundances and sample occurrence summarized in [Table S4](https://github.com/devonorourke/nhguano/blob/master/supplementaryData/tableS4_batHost_summary.csv) of the manuscript. These data indicate that nearly all of our bat-classified COI data are derived from _Myotis lucifugus_ (Little brown bat), with at least 578 samples having at least one OTU classified to _M. lucifugs_ (578 for VSEARCH-classified OTUs, 579 for naive Bayes).
+- For both VSEARCH and naive Bayes-classified OTUs, we separately filtered the dataset to retain only those OTUs with taxonomic family information assigned to the Phylum "Arthropoda". Thus, an OTU may be included that lacked genus or species labels, provided it retained an unambiguous family label. To select a final list of OTUs, we first retained VSEARCH-classified OTUs that fit these filtering criteria (representing near exact matches). Among VSEARCH-classified OTUs that did not pass this filtering threshold, we then selected from the naive Bayes-classified OTUs that met the same standard, if possible. In all, 559 OTUs were selected using the VSEARCH method, and 2,627 from naive Bayes.
+- Ambiguous species labels were removed for taxonomic labels like "sp.", "nr.", or "gr.". Additionally, any alphanumeric suffixes in species labels were removed, thus a label like "Enicospilus purgatusDHJ02" was truncated to "Enicospilus purgatus". These data are available in the ['allTrueSamps_OTUtable_long_wTaxa.csv.gz'](https://github.com/devonorourke/nhguano/raw/master/data/text_tables/otu_tables/allTrueSamps_OTUtable_long_wTaxa.csv.gz) file.
+- Among all OTUs remaining across all samples, we next noramlized samples using a method of scaling with ranked subsampling using the [SRS](https://peerj.com/articles/9593/) function ['SRS'](https://cran.r-project.org/web/packages/SRS/index.html). We retained only those samples with a per-sample minimum of 1,000 arthropod-classified reads. The resulting file ['min1kseqs_Samps_OTUtable_long_wTaxa.csv.gz'](https://github.com/devonorourke/nhguano/raw/master/data/text_tables/otu_tables/min1kseqs_Samps_OTUtable_long_wTaxa.csv.gz) was used for all subsequent diversity analyses processed in the [diversityAnalyses.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/diversityAnalyses.R) script.
+
+
+# Diversity analysis summaries
