@@ -3,12 +3,15 @@ We initially processed all samples following steps described in the [Sequence Pr
 
 The work presented herein:
 1. Clustering representative sequences (ASVs) into representative clusters (OTUs)
-2. Classifying OTUs
-3. Identifying bat host species among samples
-4. Filtering OTUs to retain only arthropod-specific diet components
-5. Diversity analysis summaries
+2. Classifying OTUs, including:
+  - Creating a custom database from BOLD references
+  - Training a naive Bayes classifier 
+  - Assigning taxonomic information to representative sequences with VSEARCH and naive Bayes classifiers
+  - Identifying bat host species among samples
+  - Filtering OTUs to retain only arthropod-specific diet components
+3. Diversity analysis summaries
 
-> The R script [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) was used to tie together some of the outputs from steps 1-4 above. Likewise, the [diversityAnalyses.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/diversityAnalyses.R) R script was used to complete almost all sections of step 5 for the diversity analysis summaries. Additional R scripts are noted when appropriate for each of these steps in the following sections.
+The R script [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) was used to tie together some of the outputs from steps 1-4 above. Likewise, the [diversityAnalyses.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/diversityAnalyses.R) R script was used to complete almost all sections of step 5 for the diversity analysis summaries. Additional R scripts are noted when appropriate for each of these steps in the following sections.
 
 # Clustering representative sequences (ASVs) into representative clusters (OTUs)
 We clustered the exact sequence variants ([tmp.raw_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza), produced at the end of the [Sequence Processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document) into representative sequence clusters. Our previous work with this and other bat diet datasets had shown that many ASVs often were assigned the exact same taxonomic information, which tends to increase the species richness estimates, and can lead to differences in community composition between groups when there likely is none (in our opinion, a bat doesn't know the differences between June bugs with a 1 base pair difference in their COI sequence). Clustering certainly reduces these diversity estimates, and may hide potential group differences, but this more conservative approach was a tradeoff we felt appropriate for our questions motivated by bat diet differences in space and time: if OTUs were different (rather than ASVs) it is very likely those differences are meaningful in terms of the kinds of taxa being detected.  
