@@ -1,5 +1,4 @@
 # Table of Contents
-
 - [Overview](#overview)
 - [Clustering representative sequences into representative clusters](#clustering-representative-sequences-into-representative-clusters)
 - [Classifying OTUs and filtering samples](#classifying-otus-and-filtering-samples)
@@ -9,11 +8,11 @@
   * [Filtering data for bat and arthropod-specific representative sequences](#filtering-data-for-bat-and-arthropod-specific-representative-sequences)
 - [Diversity analysis summaries](#diversity-analysis-summaries)
   * [Overview](#overview-1)
-  * [New Hampshire-wide analyses (all samples)](#new-hampshire-wide-analyses--all-samples-)
+  - [New Hampshire-wide analyses: all samples](#new-hampshire-wide-analyses--all-samples)
     + [Frequently detected arthropod orders](#frequently-detected-arthropod-orders)
     + [Frequently detected OTUs](#frequently-detected-otus)
     + [Pest analyses](#pest-analyses)
-  * [Spatiotemporal analyses (select samples)](#spatiotemporal-analyses--select-samples-)
+  - [Spatiotemporal analyses: select samples](#spatiotemporal-analyses--select-samples)
     + [Single site, single year, multiple sampling windows](#single-site--single-year--multiple-sampling-windows)
     + [Multiple sites, single year, multiple sampling windows](#multiple-sites--single-year--multiple-sampling-windows)
     + [Multiple sites, multiple years, single sampling window](#multiple-sites--multiple-years--single-sampling-window)
@@ -166,14 +165,14 @@ Three separate analyses investigated how bat diets varied with temporal and spat
 | 9 | October 24 | November 30
 
 
-## New Hampshire-wide analyses (all samples)
+## New Hampshire-wide analyses: all samples
 Analyses focused on those samples filtered to retain at least 1,000 arthropod-classified sequences, as previously described in the [Classifying OTUs and filtering samples](#classifying-otus-and-filtering-samples) section.
 
 ### Frequently detected arthropod orders
 ### Frequently detected OTUs
 ### Pest analyses
 
-## Spatiotemporal analyses (select samples)
+## Spatiotemporal analyses: select samples
 ### Single site, single year, multiple sampling windows
 ### Multiple sites, single year, multiple sampling windows
 ### Multiple sites, multiple years, single sampling window
