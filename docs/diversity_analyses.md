@@ -1,7 +1,7 @@
 # Table of Contents
 
 - [Overview](#overview)
-- [Clustering representative sequences (ASVs) into representative clusters (OTUs)](#clustering-representative-sequences--asvs--into-representative-clusters--otus-)
+- [Clusters)](#clustering-representative-sequences-into-representative-clusters)
 - [Classifying OTUs and filtering samples](#classifying-otus-and-filtering-samples)
   * [Database development](#database-development)
   * [Training a naive Bayes classifier](#training-a-naive-bayes-classifier)
@@ -36,7 +36,7 @@ The work presented herein:
 
 The R script [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) was used to tie together some of the outputs from steps 1-4 above. Likewise, the [diversityAnalyses.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/diversityAnalyses.R) R script was used to complete almost all sections of step 5 for the diversity analysis summaries. Additional R scripts are noted when appropriate for each of these steps in the following sections.
 
-# Clustering representative sequences (ASVs) into representative clusters (OTUs)
+# Clustering representative sequences into representative clusters
 We clustered the exact sequence variants ([tmp.raw_table.qza](https://github.com/devonorourke/nhguano/blob/master/data/qiime_qza/ASVtable/tmp.raw_table.qza), produced at the end of the [Sequence Processing](https://github.com/devonorourke/nhguano/blob/master/docs/sequence_processing.md) document) into representative sequence clusters. Our previous work with this and other bat diet datasets had shown that many ASVs often were assigned the exact same taxonomic information, which tends to increase the species richness estimates, and can lead to differences in community composition between groups when there likely is none (in our opinion, a bat doesn't know the differences between June bugs with a 1 base pair difference in their COI sequence). Clustering certainly reduces these diversity estimates, and may hide potential group differences, but this more conservative approach was a tradeoff we felt appropriate for our questions motivated by bat diet differences in space and time: if OTUs were different (rather than ASVs) it is very likely those differences are meaningful in terms of the kinds of taxa being detected.  
 
 Because QIIME 2 did not have the functionality to cluster ASVs into OTUs using abundance information _and_ produce a temporary `.uc` file as output, we had to perform a little bit of reformatting to run VSEARCH manually. This involved exporting the ASV table, generating a plain text fasta file with abundance information (per ASV), then clustering with VSEARCH and generating a `.uc` file that identified the ASV to the group Centroid (OTU). That `.uc` file was then used in the [seqProcessing.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/seqProcessing.R) script to aggregate the raw reads from each ASV per sample into OTUs per sample. This process worked as follows:
