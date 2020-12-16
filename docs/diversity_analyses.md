@@ -1,7 +1,7 @@
 # Table of Contents
 
 - [Overview](#overview)
-- [Clusters)](#clustering-representative-sequences-into-representative-clusters)
+- [Clustering representative sequences into representative clusters](#clustering-representative-sequences-into-representative-clusters)
 - [Classifying OTUs and filtering samples](#classifying-otus-and-filtering-samples)
   * [Database development](#database-development)
   * [Training a naive Bayes classifier](#training-a-naive-bayes-classifier)
@@ -167,7 +167,7 @@ Three separate analyses investigated how bat diets varied with temporal and spat
 
 
 ## New Hampshire-wide analyses (all samples)
-Analyses focused on those samples filtered to retain at least 1,000 arthropod-classified sequences, as previously described in the [Classifying OTUs and filtering samples](#classifying-otus-and-filtering-samples) section. 
+Analyses focused on those samples filtered to retain at least 1,000 arthropod-classified sequences, as previously described in the [Classifying OTUs and filtering samples](#classifying-otus-and-filtering-samples) section.
 
 ### Frequently detected arthropod orders
 ### Frequently detected OTUs
