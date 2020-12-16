@@ -8,11 +8,11 @@
   * [Filtering data for bat and arthropod-specific representative sequences](#filtering-data-for-bat-and-arthropod-specific-representative-sequences)
 - [Diversity analysis summaries](#diversity-analysis-summaries)
   * [Overview](#overview-1)
-  - [New Hampshire-wide analyses: all samples](#new-hampshire-wide-analyses--all-samples)
+  - [New Hampshire-wide analyses of all samples](#new-hampshire-wide-analyses-of-all-samples)
     + [Frequently detected arthropod orders](#frequently-detected-arthropod-orders)
     + [Frequently detected OTUs](#frequently-detected-otus)
     + [Pest analyses](#pest-analyses)
-  - [Spatiotemporal analyses: select samples](#spatiotemporal-analyses--select-samples)
+  - [Spatiotemporal analyses of select samples](#spatiotemporal-analyses-of-select-samples)
     + [Single site, single year, multiple sampling windows](#single-site--single-year--multiple-sampling-windows)
     + [Multiple sites, single year, multiple sampling windows](#multiple-sites--single-year--multiple-sampling-windows)
     + [Multiple sites, multiple years, single sampling window](#multiple-sites--multiple-years--single-sampling-window)
@@ -165,14 +165,20 @@ Three separate analyses investigated how bat diets varied with temporal and spat
 | 9 | October 24 | November 30
 
 
-## New Hampshire-wide analyses: all samples
-Analyses focused on those samples filtered to retain at least 1,000 arthropod-classified sequences, as previously described in the [Classifying OTUs and filtering samples](#classifying-otus-and-filtering-samples) section.
+## New Hampshire-wide analyses of all samples
+Analyses focused on those samples filtered to retain at least 1,000 arthropod-classified sequences, as previously described in the [Classifying OTUs and filtering samples](#classifying-otus-and-filtering-samples) section. Data was analyzed in _parts 1 and 2_ of the [diversityAnalyses.R](https://github.com/devonorourke/nhguano/blob/master/scripts/r_scripts/diversityAnalyses.R) script.
 
 ### Frequently detected arthropod orders
+We identifed the most frequently detected arthropod orders among all 899 samples meeting our filtering criteria. We presented the number of samples with at least one OTU classified to a particular arthropod order in [Table 1](https://github.com/devonorourke/nhguano/blob/master/tables/table1_overall_arthropodOrder_summaries.csv) of the manuscript. We aggregated arthropod orders with fewer than 10 sample detections into a single group in the manuscript (with these particular orders listed in the legend), but a similar table of counts is [available here](https://github.com/devonorourke/nhguano/blob/master/tables/table1alt_overall_arthropodOrder_summaries_noInfrequentOrderCollapsing.csv).
+
 ### Frequently detected OTUs
+We summarized the most prevalent OTUs (in terms of samples detected) by identifying those OTUs detected at least 5% of samples. These results are summarized in [Supplementary Table S5](https://github.com/devonorourke/nhguano/blob/master/supplementaryData/tableS5_coreOTU_summary.csv). We further refined these data by grouping detections of these OTUs into shared genus ranks. This grouping/aggregating was done to unify the number of times a similarly-classified taxa was counted (e.x. there were 11 OTUs classified to _Phyllophaga hirsuta_). All but one of these prevalent OTUs lacked a known genus name, thus the names presented in [Figure 2](https://raw.githubusercontent.com/devonorourke/nhguano/master/figures/figure2_corefeatures_byGenus.png) are complete except for _f. Chironomidae OTU-19_. While chose to group at the genus level instead of species for two reasons: first, our internal evaluations (unpublished) of classification accuracy of our curated database suggested a very high accuracy at genus level but less so at species rank (see [this figure](https://raw.githubusercontent.com/devonorourke/COIdatabases/master/data/early_work_tidybugComps/plot_fmeasure_byArthOrder.png)); second, 14 of the 37 most prevalent taxa lacked species labels. The genus-label grouped data for these prevalent taxa shown in Figure 2 is available in the file ['core_genus_detections.csv'](https://github.com/devonorourke/nhguano/blob/master/data/text_tables/core_genus_detections.csv).  
+
+Notably, these frequently detected OTUs are commonly observed among the 19 sites surveyed. For example, 18 of 19 sites had at least a quarter of these prevalent OTUs (and the one missing site had fewer than 10 samples total to begin with). More than half of the prevalent OTUs are detected in 11 of the 19 sites. Thus these data represent taxa that are found in many different locations and many different sampling dates. The particular frequency of detection per site per OTU is provided in [Supplementary Table S6](https://github.com/devonorourke/nhguano/blob/master/supplementaryData/tableS6_core_OTUs_sumry_matrix.csv).
+
 ### Pest analyses
 
-## Spatiotemporal analyses: select samples
+## Spatiotemporal analyses of select samples
 ### Single site, single year, multiple sampling windows
 ### Multiple sites, single year, multiple sampling windows
 ### Multiple sites, multiple years, single sampling window
