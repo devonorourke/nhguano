@@ -53,7 +53,7 @@ otu_table_long_filtd_wMeta <- otu_table_long_filtd_wMeta %>%
          Month = month(newDate)) %>%
   select(-StudyID)
 
-## instead of binning by Month, could also group into N-day intervals (e.x. 45-day windows)
+## instead of binning by Month, could also group into N-day intervals (37-day windows used here)
   ### might be able to create N-day windows to regroup samples?
   ## https://raw.githubusercontent.com/devonorourke/nhguano/4a07feca887bdfb6e531db4827771c18189f5f45/scripts/r_scripts/taxa_summaries.R
 
@@ -411,7 +411,7 @@ rm(core_OTUs_df, core_OTUs_bySite, core_OTUs_sumry, core_OTUs_sumry_matrix, core
 ## 1a. calculate alpha diversity using 3 metrics (Richness, Shannon's, Faith's PD)
 ## 1b. compare sampling windows for each metric using Kruskal-Wallis and pairwise Wilcoxon
 
-## 2a. calculate community composition distances using 4 metrics (Dice-Sorensen, Bray-Curtis, Unweighted/Weighted Unifrac)
+## 2a. calculate community composition distances using 2 metrics (Dice-Sorensen, Unweighted UniFrac)
 ## 2b. ordinate each distance for:
 #  2bii. between-group medians (centroids)
 # 2biii. within-group dispersions (via betadisper)
@@ -988,7 +988,7 @@ rm(list = ls(pattern = "^fox*"))
 rm(p_3b, p_3c)
 
 ########################################
-## part 4 - diversity estimates: multipe sites, same year
+## part 4 - diversity estimates: multiple sites, same year
 ## how does diversity change between sites and sampling windows in a single year?
 ## using same 37-day sampling window
 

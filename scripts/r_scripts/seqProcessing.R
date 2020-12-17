@@ -62,6 +62,7 @@ rm(tmp.UC.hits, tmp.UC.sentroids, UC_df)
 
 ## merge with `asv_table_long`
 asv_table_long_wCentroids <- merge(asv_table_long, uc_data, by="ASVid")
+rm(asv_table_long)
 
 # ## group by the centroids, summing all ASVs that share a particular centroid
 otu_table_long <- asv_table_long_wCentroids %>%
@@ -70,7 +71,7 @@ otu_table_long <- asv_table_long_wCentroids %>%
 #
 # ## write as long format:
 write_csv(otu_table_long, quote=FALSE,
-          path = "~/github/nhguano/data/text_tables/otu_tables/allSamples_OTUtable_long.csv")
+          file = "~/github/nhguano/data/text_tables/otu_tables/allSamples_OTUtable_long.csv")
 # 
 # ########################################
 # ## part 2 - filtering mock and negative control samples
@@ -94,7 +95,7 @@ mock_uc_data$boolMatch <- mock_uc_data$ASVid == mock_uc_data$OTUid
 #   ##... how many times are those ASV observed:
   ASVs_notMockCentroids <- mock_uc_data %>% filter(boolMatch == FALSE) %>% select(OTUid)
 #     ## 1) in mock samples?
-    asv_table_long %>%
+    asv_table_long_wCentroids %>%
       filter(str_detect(SampleID, "^mock")) %>%
       filter(ASVid %in% ASVs_notMockCentroids$OTUid) %>%
       group_by(ASVid) %>%
@@ -102,7 +103,7 @@ mock_uc_data$boolMatch <- mock_uc_data$ASVid == mock_uc_data$OTUid
                 perASVreads = sum(Reads))
 #         ## detected in 5 mock samples each, with about 1000 reads total per ASV...
 #     ## 2) in true samples?
-    asv_table_long %>%
+    asv_table_long_wCentroids %>%
       filter(!str_detect(SampleID, "^mock")) %>%
       filter(!str_detect(SampleID, "^neg")) %>%
       filter(ASVid %in% ASVs_notMockCentroids$OTUid) %>%
@@ -114,14 +115,15 @@ mock_uc_data$boolMatch <- mock_uc_data$ASVid == mock_uc_data$OTUid
       ##... they are due to sequencing errors, or possibly if real are present only in the mock samples (and they get filtered out once we drop mock samples)
 # 
 # ## among these 25 mock ASVs, how many reads are there among the true samples in our dataset?
-sumry_mockASVs_trueSamples <- asv_table_long %>%
+sumry_mockASVs_trueSamples <- asv_table_long_wCentroids %>%
   filter(!str_detect(SampleID, "^mock")) %>%
   filter(!str_detect(SampleID, "^neg")) %>%
   filter(ASVid %in% mock_uc_data$ASVid) %>%
   group_by(ASVid) %>%
   summarise(sumASVreads = sum(Reads),
             nSamples = n())
-#   ## a bit of cross talk as expected... some ASVs in tens of samples, but overall read depth is a fraction of overall abundance (per mock ASV)
+#   ## a bit of cross talk as expected... 
+    ## some ASVs in tens of samples, but overall read depth is a fraction of overall abundance (per mock ASV)
 #   ## dropping these isn't biasing strongly to one kind of taxa, and is better to drop than retain and inflate richness values.
 # 
 # ## generate a list of mock-associated OTUs to drop from dataset
@@ -166,12 +168,12 @@ rm(asv_table_long, asv_table_long_wCentroids, otu_table_long,
 sampOTUs <- otu_table_long_sampOnly %>% distinct(OTUid) %>% pull()
 # 
 # ## import taxa files from BOLD database using NaiveBayes (NB) or VSEARCH (VS)
-allSamps_NBtaxa_boldDB <- read_delim(file = "~/github/nhguano/data/taxonomy/NBtaxonomy.tsv.gz",
+allSamps_NBtaxa_boldDB <- read_delim(file = "https://github.com/devonorourke/nhguano/raw/master/data/taxonomy/allASVs_NB_taxa.tsv.gz",
                               delim = "\t") %>%
   filter(`Feature ID` %in% sampOTUs) %>%
   rename(OTUid = `Feature ID`)
 # 
-allSamps_VStaxa_boldDB <- read_delim(file = "~/github/nhguano/data/taxonomy/VStaxonomy.tsv.gz",
+allSamps_VStaxa_boldDB <- read_delim(file = "https://github.com/devonorourke/nhguano/raw/master/data/taxonomy/allASVs_VS_taxa.tsv.gz",
                               delim = "\t") %>%
   filter(`Feature ID` %in% sampOTUs) %>%
   rename(OTUid = `Feature ID`)
@@ -361,10 +363,10 @@ allSamps_NBtaxa_OTUsumry <- allSamps_NBtaxa_readCounts %>%
             totalReads = sum(OTUreads))
 # ## what OTUs were left out from our final table that are present here?
 NB_droppedOTUs <- setdiff(allSamps_NBtaxa_OTUsumry$OTUid, otu_table_long_sampOnly_wTaxa$OTUid)
-#   ## 1,764 OTUs are dropped with that filtering!
+#   ## 1,910 OTUs are dropped with that filtering strategy... that's a lot of OTUs
 # ## what were their persample/readdepth summaries?
 dropped_NBtaxa_OTUsumry <- allSamps_NBtaxa_OTUsumry %>% filter(OTUid %in% NB_droppedOTUs)
-#   ## just 29 of the OTUs we dropped are detected in more than 1% of our samples
+#   ## 27 of the OTUs we dropped are detected in more than 1% of our samples
 #   ## manually BLASTing (NCBI webBlast) suggest these are degraded samples, as most % identity scores were well below 90% ID for anything
 #   ## the largest OTU we're leaving out? the MYLU OTU!
 # #################### sanity check == end ####################
@@ -381,7 +383,6 @@ rm(allSamps_VStaxa_boldDB, arthOnly_mergedTaxa, arthOnly_NBtaxa, arthOnly_VStaxa
 # ## can restart this section by loading two files:
 # otu_table_long_sampOnly_wTaxa <- read_csv("https://github.com/devonorourke/nhguano/raw/master/data/text_tables/otu_tables/allTrueSamps_OTUtable_long_wTaxa.csv.gz")
 # allMeta <- read_csv("https://raw.githubusercontent.com/devonorourke/nhguano/master/data/metadata/allbat_meta.csv")
-
 
 ## how many reads per sample?
 perSampleOTUssumry <- otu_table_long_sampOnly_wTaxa %>% 
